@@ -13,6 +13,7 @@ enum AppSettingsKey: String, CaseIterable {
     case hyperKeyQuickPress = "hyperKeyQuickPress"
     case emojiSkinTone = "emojiSkinTone"
     case emojiGridColumns = "emojiGridColumns"
+    case showInMenuBar = "showInMenuBar"
     case popToRootTimeout = "popToRootTimeout"
     case escapeKeyBehavior = "escapeKeyBehavior"
     case appearance = "appearance"
@@ -92,4 +93,5 @@ enum AppSettingsKey: String, CaseIterable {
     case quickActionInstructions = "quickActionInstructions"
     case quickActionLanguage = "quickActionLanguage"
     case supportReminders = "supportReminders"
+    case settingsFileEnabled = "settingsFileEnabled"
 }

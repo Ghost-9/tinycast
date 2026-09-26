@@ -14,6 +14,23 @@ enum AppPaths {
         root(.applicationSupportDirectory, bundleID: bundleID)
     }
 
+    /// `~/.config/tinycast/settings.json`; another channel suffixes the folder, as `tinycast-dev`.
+    static func settingsFile(
+        bundleID: String = Bundle.main.bundleIdentifier ?? "com.tinycast.app"
+    ) -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: ".config", directoryHint: .isDirectory)
+            .appending(path: configFolderName(bundleID: bundleID), directoryHint: .isDirectory)
+            .appending(path: "settings.json", directoryHint: .notDirectory)
+    }
+
+    private static func configFolderName(bundleID: String) -> String {
+        let stable = "com.tinycast.app"
+        if bundleID == stable { return "tinycast" }
+        guard bundleID.hasPrefix(stable + ".") else { return bundleID }
+        return "tinycast-" + bundleID.dropFirst(stable.count + 1)
+    }
+
     private static func root(
         _ directory: FileManager.SearchPathDirectory, bundleID: String
     ) -> URL {

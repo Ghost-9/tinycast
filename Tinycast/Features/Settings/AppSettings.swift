@@ -1,13 +1,5 @@
 import SwiftUI
 
-/// Keys shared between `@AppStorage` sites, so app and Settings bind to the same one.
-enum SettingsKey {
-    /// The launcher icon's visibility — read by its `MenuBarExtra` and the General toggle.
-    static let showInMenuBar = "showInMenuBar"
-    static let calendarMenuBarDisplay = "calendarMenuBarDisplay"
-    static let calendarMenuBarHidesWhenEmpty = "calendarMenuBarHidesWhenEmpty"
-}
-
 /// Delay before a closed palette pops to root; an unset key reads as `.immediately`.
 enum PopToRootTimeout: Int, CaseIterable, Identifiable, Sendable {
     case immediately = 0
@@ -167,6 +159,11 @@ final class AppSettings {
 
     var launchAtLogin: Bool {
         didSet { LaunchAtLogin.set(launchAtLogin) }
+    }
+
+    /// The launcher icon's visibility; dragging the icon out of the menu bar turns it off.
+    var showInMenuBar: Bool {
+        didSet { defaults.set(showInMenuBar, forKey: Key.showInMenuBar.rawValue) }
     }
 
     /// The physical key remapped to the Hyper chord; `HyperKeyTap` reacts via its observer.
@@ -571,6 +568,11 @@ final class AppSettings {
         didSet { defaults.set(supportRemindersEnabled, forKey: Key.supportReminders.rawValue) }
     }
 
+    /// Whether settings.json mirrors these settings; `AppCore` starts and stops the mirror.
+    var settingsFileEnabled: Bool {
+        didSet { defaults.set(settingsFileEnabled, forKey: Key.settingsFileEnabled.rawValue) }
+    }
+
     init() {
         // The only feature switch that defaults on, so absence has to outrank a stored `false`.
         clipboardEnabled =
@@ -589,6 +591,9 @@ final class AppSettings {
             defaults.string(forKey: Key.clipboardDefaultAction.rawValue)
             .flatMap(ClipboardDefaultAction.init) ?? .paste
         launchAtLogin = LaunchAtLogin.isEnabled
+        showInMenuBar =
+            defaults.object(forKey: Key.showInMenuBar.rawValue) == nil
+            || defaults.bool(forKey: Key.showInMenuBar.rawValue)
         hyperKey =
             defaults.string(forKey: Key.hyperKey.rawValue).flatMap(HyperKeyPhysicalKey.init)
             ?? .none
@@ -752,5 +757,6 @@ final class AppSettings {
         supportRemindersEnabled =
             defaults.object(forKey: Key.supportReminders.rawValue) == nil
             || defaults.bool(forKey: Key.supportReminders.rawValue)
+        settingsFileEnabled = defaults.bool(forKey: Key.settingsFileEnabled.rawValue)
     }
 }
