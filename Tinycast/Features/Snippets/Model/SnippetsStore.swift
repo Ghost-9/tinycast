@@ -63,6 +63,12 @@ final class SnippetsStore {
         stop()
         self.repository = repository
         snippetsDirectory = repository.snippetsDirectory
+        // Emptied first, so a folder that fails to load leaves no old snippet expanding.
+        if !snippets.isEmpty || !issues.isEmpty {
+            snippets = []
+            issues = []
+            onSnapshot?(SnippetRepository.Snapshot(records: [], issues: []))
+        }
         guard wasStarted else { return }
         await start()
     }
