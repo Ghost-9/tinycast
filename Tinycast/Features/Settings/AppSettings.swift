@@ -318,6 +318,11 @@ final class AppSettings {
         didSet { defaults.set(notesShowsFormattingBar, forKey: Key.notesShowsFormattingBar.rawValue) }
     }
 
+    /// The notes folder as the user wrote it, `~` allowed; nil keeps it in Application Support.
+    var notesFolder: String? {
+        didSet { defaults.set(notesFolder, forKey: Key.notesFolder.rawValue) }
+    }
+
     /// Off by default: connecting a server is consent to run code Tinycast did not write.
     var mcpEnabled: Bool {
         didSet { defaults.set(mcpEnabled, forKey: Key.mcpEnabled.rawValue) }
@@ -350,6 +355,11 @@ final class AppSettings {
 
     var snippetsShowInLauncher: Bool {
         didSet { defaults.set(snippetsShowInLauncher, forKey: Key.snippetsShowInLauncher.rawValue) }
+    }
+
+    /// The snippets folder as the user wrote it, `~` allowed; nil keeps it in Application Support.
+    var snippetsFolder: String? {
+        didSet { defaults.set(snippetsFolder, forKey: Key.snippetsFolder.rawValue) }
     }
 
     var navigationEnabled: Bool {
@@ -662,6 +672,7 @@ final class AppSettings {
         notesShowsFormattingBar =
             defaults.object(forKey: Key.notesShowsFormattingBar.rawValue) == nil
             || defaults.bool(forKey: Key.notesShowsFormattingBar.rawValue)
+        notesFolder = defaults.string(forKey: Key.notesFolder.rawValue)
         aiEnabled = defaults.bool(forKey: Key.aiEnabled.rawValue)
         mcpEnabled = defaults.bool(forKey: Key.mcpEnabled.rawValue)
         customCommandsEnabled = defaults.bool(forKey: Key.customCommandsEnabled.rawValue)
@@ -674,6 +685,7 @@ final class AppSettings {
         snippetsShowInLauncher =
             defaults.object(forKey: Key.snippetsShowInLauncher.rawValue) == nil
             || defaults.bool(forKey: Key.snippetsShowInLauncher.rawValue)
+        snippetsFolder = defaults.string(forKey: Key.snippetsFolder.rawValue)
         // Opt-in, unlike its siblings: until it is asked for, nothing about extensions is loaded.
         extensionsEnabled = defaults.bool(forKey: Key.extensionsEnabled.rawValue)
         extensionsShowInLauncher =

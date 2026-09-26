@@ -238,14 +238,13 @@ final class AppCore {
         let clipboardManager = ClipboardManager(store: clipboardStore, settings: settings)
         self.clipboardManager = clipboardManager
         extensions = ExtensionManager(clipboardStore: clipboardStore)
-        snippetsStore = SnippetsStore()
+        snippetsStore = SnippetsStore(repository: Self.snippetsRepository(for: settings))
         textInjector = TextInjector(
             clipboardManager: clipboardManager,
             settings: settings)
         let noteSelectionKey = "notesActiveFileName"
         notesStore = NotesStore(
-            repository: NotesRepository(
-                applicationSupportDirectory: AppPaths.applicationSupport()),
+            repository: Self.notesRepository(for: settings),
             loadSelection: {
                 UserDefaults.standard.string(forKey: noteSelectionKey).map(NoteID.init(rawValue:))
             },
@@ -651,6 +650,8 @@ final class AppCore {
         track(
             { _ = $0.extensionsShowInLauncher },
             reproject: { $0.extensionCoordinator.applyExtensionsLauncherPresence() })
+        track({ _ = $0.snippetsFolder }, reproject: { $0.applySnippetsFolder() })
+        track({ _ = $0.notesFolder }, reproject: { $0.applyNotesFolder() })
         trackChatRoute()
     }
 
@@ -708,6 +709,25 @@ final class AppCore {
     private func applyHyperChord() {
         guard settings.hyperKey != .none else { return }
         hotKeys.retargetHyperBindings(includesShift: settings.hyperKeyIncludesShift)
+    }
+
+    private func applySnippetsFolder() {
+        let repository = Self.snippetsRepository(for: settings)
+        Task { await snippetsStore.relocate(to: repository) }
+    }
+
+    private func applyNotesFolder() {
+        let repository = Self.notesRepository(for: settings)
+        Task { await notesStore.relocate(to: repository) }
+    }
+
+    private static func snippetsRepository(for settings: AppSettings) -> SnippetRepository {
+        SnippetRepository(
+            snippetsDirectory: AppPaths.contentFolder(settings.snippetsFolder, named: "Snippets"))
+    }
+
+    private static func notesRepository(for settings: AppSettings) -> NotesRepository {
+        NotesRepository(notesDirectory: AppPaths.contentFolder(settings.notesFolder, named: "Notes"))
     }
 
     private func applyWindowCommandsPresence() {

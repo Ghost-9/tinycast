@@ -28,10 +28,10 @@ final class NotesStore {
         return NoteTitle.firstLine(of: source) ?? title
     }
     var activeFileURL: URL? { activeID.map(repository.fileURL(for:)) }
-    let notesDirectory: URL
+    private(set) var notesDirectory: URL
     var onIssue: ((Issue) -> Void)?
 
-    private let repository: NotesRepository
+    private var repository: NotesRepository
     private let loadSelection: @Sendable () -> NoteID?
     private let saveSelection: @Sendable (NoteID?) -> Void
     @ObservationIgnored private var saveDebounce: Task<Void, Never>?
@@ -65,6 +65,18 @@ final class NotesStore {
         let result = await detached({ try repository.list() }, recover: { repository.notesDirectory })
         if case .success(let summaries) = result { self.summaries = summaries }
         return true
+    }
+
+    /// Moves to another folder: the open draft is saved where it was, then the new one lists.
+    func relocate(to repository: NotesRepository) async {
+        guard repository.notesDirectory != notesDirectory else { return }
+        await flush()
+        cancelSearch()
+        self.repository = repository
+        notesDirectory = repository.notesDirectory
+        saveFailed = false
+        guard isLoaded else { return }
+        _ = await reload(preferredID: nil)
     }
 
     func reload() async -> Bool {

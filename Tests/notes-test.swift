@@ -977,7 +977,7 @@ struct NotesTests {
         let trash = trashDirectory(in: root)
         try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
         return NotesRepository(
-            applicationSupportDirectory: support ?? root,
+            notesDirectory: (support ?? root).appendingPathComponent("Notes", isDirectory: true),
             trashOperation: { url in
                 try FileManager.default.moveItem(
                     at: url, to: trash.appendingPathComponent(url.lastPathComponent))

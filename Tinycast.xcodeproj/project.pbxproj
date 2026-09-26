@@ -326,6 +326,7 @@
 		6C915A60C3C2F2682645C32B /* UpdateInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9188FA8A06EAE3E55FFCBC70 /* UpdateInstaller.swift */; };
 		6CDA82FD63F87D07E30E3F82 /* Zlib.swift in Sources */ = {isa = PBXBuildFile; fileRef = F097C9983DF27A99694C8BC5 /* Zlib.swift */; };
 		6D241F01F4BB98AAE1720330 /* InstalledAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A76D9592F0809DEC9993684A /* InstalledAI.swift */; };
+		6F076223EA47A68C1490F674 /* FolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 236934966557373B61455B3C /* FolderPicker.swift */; };
 		6F644313A467DB269FDBAED6 /* FilePreviewThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BC0CEDE9677C9C2485586B3 /* FilePreviewThumbnail.swift */; };
 		6FC9F74D9119AC25D178D748 /* ExtensionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 810AA3AD31C7E11932E34F28 /* ExtensionRegistry.swift */; };
 		71A3E0285404C206B2CD9D7A /* GlobeTapDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1B435CC7A7F22E8C4C6B9C /* GlobeTapDetector.swift */; };
@@ -856,6 +857,7 @@
 		222F9EE432F608B5C907E7C2 /* MCPOAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPOAuth.swift; sourceTree = "<group>"; };
 		22701685D1187235DA195F3B /* LauncherOrder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherOrder.swift; sourceTree = "<group>"; };
 		23591B301A183579098AA019 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		236934966557373B61455B3C /* FolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPicker.swift; sourceTree = "<group>"; };
 		23A119A569C07DE20F315212 /* InlineArgumentFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineArgumentFields.swift; sourceTree = "<group>"; };
 		23F7C8CBD0AA75D016DBFC06 /* SettingsPaneScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPaneScanner.swift; sourceTree = "<group>"; };
 		2438C33DEAF16B26E4F195EB /* ExecutableLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutableLocator.swift; sourceTree = "<group>"; };
@@ -1533,6 +1535,7 @@
 				D3F82845FDA307DF71676352 /* CalendarAccess.swift */,
 				5DD86B3ABBB71BC6EA116D85 /* CameraAccess.swift */,
 				2438C33DEAF16B26E4F195EB /* ExecutableLocator.swift */,
+				236934966557373B61455B3C /* FolderPicker.swift */,
 				BFB023D167225228757CC4B2 /* HealthTicker.swift */,
 				2FCD070CDE64691E5F6ED28D /* InputSourceSwitcher.swift */,
 				CC02192DE787DBE081C589B8 /* KeychainSecretStore.swift */,
@@ -3807,6 +3810,7 @@
 				24EFA87B2617537B6CAAD52B /* FileSearchSettingsView.swift in Sources */,
 				0CC2291DE8806FDFB478F8A0 /* FileSearchSurface.swift in Sources */,
 				303FC5342B61A7862EBC1C32 /* FocusRelease.swift in Sources */,
+				6F076223EA47A68C1490F674 /* FolderPicker.swift in Sources */,
 				7833FD6E0A6036954FE285CE /* FrequentEmojiStore.swift in Sources */,
 				C5F60D8681235B95DAA3314F /* GeneralSettingsView.swift in Sources */,
 				BA81211D8B660F2DD03A20EA /* GlassEffectView.swift in Sources */,

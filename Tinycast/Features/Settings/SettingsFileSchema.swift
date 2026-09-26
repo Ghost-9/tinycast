@@ -70,7 +70,9 @@ enum SettingsFileSchema {
         case .notesEnabled: return bind(settings, \.notesEnabled)
         case .notesRendersMarkdown: return bind(settings, \.notesRendersMarkdown)
         case .notesShowsFormattingBar: return bind(settings, \.notesShowsFormattingBar)
+        case .notesFolder: return bind(settings, \.notesFolder, accept: folder)
         case .snippetsShowInLauncher: return bind(settings, \.snippetsShowInLauncher)
+        case .snippetsFolder: return bind(settings, \.snippetsFolder, accept: folder)
         case .navigationEnabled: return bind(settings, \.navigationEnabled)
         case .menuSearchShowsAppleMenu: return bind(settings, \.menuSearchShowsAppleMenu)
         case .menuSearchDisabledApps: return bind(settings, \.menuSearchDisabledApps)
@@ -107,6 +109,12 @@ enum SettingsFileSchema {
         case .hideCurrentEvent: return bind(settings, \.hideCurrentEvent)
         case .extensionsShowInLauncher: return bind(settings, \.extensionsShowInLauncher)
         }
+    }
+
+    /// A folder is absolute or under `~/`; null puts it back in Application Support.
+    private static func folder(_ path: String?) -> String?? {
+        guard let path else { return .some(nil) }
+        return AppPaths.isFolderPath(path) ? path : nil
     }
 }
 
