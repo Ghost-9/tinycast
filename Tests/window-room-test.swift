@@ -788,8 +788,9 @@ struct WindowRoomTests {
             name: "Design", windows: [window("figma", id: 12), window("notes", id: 13)],
             lastEnteredAt: Date(timeIntervalSince1970: 30))
         let edited = Room(
-            id: learned.id, name: "Design Review", windows: [window("figma"), window("mail")])
-            .keepingRuntime(of: learned)
+            id: learned.id, name: "Design Review", windows: [window("figma"), window("mail")]
+        )
+        .keepingRuntime(of: learned)
         expect(
             edited.name == "Design Review" && edited.lastEnteredAt == learned.lastEnteredAt,
             "an edited room keeps when it was last entered")
