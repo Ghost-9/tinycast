@@ -21,6 +21,9 @@ settings:
     Release:
       # Release-only: library validation refuses Debug's `.debug.dylib`, whose team never matches.
       ENABLE_HARDENED_RUNTIME: YES
+      # Archives for Organizer's Direct Distribution; Debug keeps the self-signed identity.
+      DEVELOPMENT_TEAM: J656U8XZ93
+      CODE_SIGN_IDENTITY: "Developer ID Application"
       # Strip the shipped binary (dSYM is still generated first) and drop unused code.
       DEPLOYMENT_POSTPROCESSING: YES
       STRIP_INSTALLED_PRODUCT: YES

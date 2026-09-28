@@ -3428,11 +3428,9 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					0832DCD58DEA01602328CCE7 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
 					};
 					51DBA6947AFD8275A0DF8DA0 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
 					};
 				};
@@ -4374,14 +4372,14 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "Tinycast Self-Signed";
+				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = J656U8XZ93;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
