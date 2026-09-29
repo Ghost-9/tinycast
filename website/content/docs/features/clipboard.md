@@ -47,9 +47,9 @@ Give **Paste Sequentially** a shortcut in **Settings → Clipboard** to paste a 
 time, without opening the palette. Copy `A`, then `B`, then `C`, and three presses paste `C`, `B`,
 then `A` into whatever field is in front, so you can move between fields as you go.
 
-It pastes text only and leaves your history in the order it was. Copying something new, or a minute
-without a press, starts it over from the newest entry. After the oldest entry it says **Nothing
-left to paste** instead of starting again.
+It pastes text, images and files alike, and leaves your history in the order it was. Copying
+something new, or a minute without a press, starts it over from the newest entry. After the oldest
+entry it says **Nothing left to paste** instead of starting again.
 
 ## What it keeps
 

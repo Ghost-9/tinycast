@@ -115,7 +115,7 @@ final class ClipboardCoordinator {
         }
     }
 
-    /// Each press pastes the next older text entry into the app in front, never promoting it.
+    /// Each press pastes the next older entry into the app in front, never promoting it.
     func pasteNextInSequence() {
         let now = Date()
         // Dropped rather than queued, so a held shortcut cannot paste a burst of entries.
@@ -124,14 +124,15 @@ final class ClipboardCoordinator {
         // A copy made just before the press must reach history, or the walk starts one entry late.
         clipboardManager.prepareForTinycastPasteboardMutation()
         var sequence = continuingPasteSequence(at: now)
-        guard let item = sequence.next(in: clipboardStore.items) else {
-            core.showMessage("Nothing left to paste", tone: .neutral)
+        while let item = sequence.next(in: clipboardStore.items) {
+            if paletteCoordinator.isVisible { paletteCoordinator.hidePalette() }
+            // An image or file gone from disk writes nothing, so the press moves on to the next.
+            guard Paster.pasteInPlace(item, store: clipboardStore, into: target) else { continue }
+            sequence.recordPaste(changeCount: NSPasteboard.general.changeCount, at: now)
+            pasteSequence = sequence
             return
         }
-        if paletteCoordinator.isVisible { paletteCoordinator.hidePalette() }
-        Paster.pasteInPlace(item, store: clipboardStore, into: target)
-        sequence.recordPaste(changeCount: NSPasteboard.general.changeCount, at: now)
-        pasteSequence = sequence
+        core.showMessage("Nothing left to paste", tone: .neutral)
     }
 
     /// A copy since the last press, or a long pause, starts the walk over from the newest entry.

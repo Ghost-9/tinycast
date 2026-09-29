@@ -16,7 +16,7 @@ struct PasteSequenceTests {
     static let history = [newest, image, middle, file, oldest]
 
     static func main() {
-        walksTextNewestFirstPastOtherKinds()
+        walksEveryKindNewestFirst()
         stopsAtTheEndRatherThanWrapping()
         emptyHistoryHasNothingToPaste()
         promotionMidWalkNeitherRepeatsNorSkips()
@@ -35,11 +35,11 @@ struct PasteSequenceTests {
         if failures > 0 { exit(1) }
     }
 
-    static func walksTextNewestFirstPastOtherKinds() {
+    static func walksEveryKindNewestFirst() {
         var sequence = freshSequence()
         expect(
-            pasted(&sequence, from: history) == ["newest", "middle", "oldest"],
-            "the walk pastes text newest first and passes over images and files")
+            pasted(&sequence, from: history) == ids(history),
+            "the walk pastes text, images and files alike, newest first")
     }
 
     static func stopsAtTheEndRatherThanWrapping() {
@@ -58,7 +58,7 @@ struct PasteSequenceTests {
         _ = sequence.next(in: history)
         let promoted = [middle, newest, image, file, oldest]
         expect(
-            pasted(&sequence, from: promoted) == ["middle", "oldest"],
+            pasted(&sequence, from: promoted) == ids([image, middle, file, oldest]),
             "a promoted entry neither repeats nor jumps the walk")
     }
 
@@ -66,7 +66,7 @@ struct PasteSequenceTests {
         var sequence = freshSequence()
         let captured = [ClipboardItem(text: "captured", sourceBundleID: nil)] + history
         expect(
-            pasted(&sequence, from: captured) == ["newest", "middle", "oldest"],
+            pasted(&sequence, from: captured) == ids(history),
             "an entry captured mid-walk is not pasted by it")
     }
 
@@ -74,7 +74,7 @@ struct PasteSequenceTests {
         var sequence = freshSequence()
         let remaining = history.filter { $0.id != middle.id }
         expect(
-            pasted(&sequence, from: remaining) == ["newest", "oldest"],
+            pasted(&sequence, from: remaining) == ids(remaining),
             "an entry deleted mid-walk is skipped rather than pasted")
     }
 
@@ -139,12 +139,14 @@ struct PasteSequenceTests {
         PasteSequence(history: history, changeCount: 1, now: start)
     }
 
-    /// Every text the walk pastes from `live` until it runs out.
-    static func pasted(_ sequence: inout PasteSequence, from live: [ClipboardItem]) -> [String] {
-        var texts: [String] = []
-        while let item = sequence.next(in: live) { texts.append(item.text ?? "") }
-        return texts
+    /// Every entry the walk pastes from `live` until it runs out.
+    static func pasted(_ sequence: inout PasteSequence, from live: [ClipboardItem]) -> [UUID] {
+        var pasted: [UUID] = []
+        while let item = sequence.next(in: live) { pasted.append(item.id) }
+        return pasted
     }
+
+    static func ids(_ items: [ClipboardItem]) -> [UUID] { items.map(\.id) }
 
     static func expect(_ condition: Bool, _ label: String) {
         if condition {

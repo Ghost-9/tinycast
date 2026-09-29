@@ -1,6 +1,6 @@
 import Foundation
 
-/// Paste Sequentially's walk down text history, newest first, frozen when the walk begins.
+/// Paste Sequentially's walk down history, newest first, frozen when the walk begins.
 struct PasteSequence: Sendable {
     static let idleTimeout: TimeInterval = 60
     /// Outlasts ⌘V's post delay and the target's read, so the next write cannot beat that read.
@@ -14,7 +14,7 @@ struct PasteSequence: Sendable {
     private var lastPaste: Date
 
     init(history: [ClipboardItem], changeCount: Int, now: Date) {
-        entryIDs = history.compactMap { $0.kind == .text ? $0.id : nil }
+        entryIDs = history.map(\.id)
         self.changeCount = changeCount
         lastPaste = now
     }

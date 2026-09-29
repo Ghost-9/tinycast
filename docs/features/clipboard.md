@@ -20,8 +20,8 @@
 - **Clipboard writes stamp a private `internalType` marker** so the poller skips Tinycast's own writes.
   If the writer and the poller ever disagree, the app re-captures its own pastes in a loop.
 - **Paste Sequentially never promotes, and its walk is frozen at the first press.** `PasteSequence`
-  keeps the text entries' ids, newest first, and resolves each against the live history, so a
-  promotion cannot repeat or skip an entry and a deleted one is passed over rather than pasted.
+  keeps every entry's id, newest first, and resolves each against the live history, so a promotion
+  cannot repeat or skip an entry and a deleted one is passed over rather than pasted.
 - **`Model/ClipboardStore.swift` keeps to Foundation plus SQLite3 and no other app source**, so
   `clipboard-test` can compile it standalone. It uses `isolated deinit` for its SQLite teardown.
 - A database that cannot be opened is deleted and recreated. That is sound because a history is
@@ -468,8 +468,9 @@ session begins.
 ## Paste Sequentially
 
 A command, so it is bound in Settings ▸ Clipboard like any other. Each press pastes the next older
-text entry into `PaletteCoordinator.targetApp` through `Paster.pasteInPlace`: ⌘V goes to that app's
-pid, and nothing is activated or promoted. Images and files are passed over.
+entry — text, image or file — into `PaletteCoordinator.targetApp` through `Paster.pasteInPlace`:
+⌘V goes to that app's pid, and nothing is activated or promoted. An image or file gone from disk
+writes nothing, so the same press moves on to the next entry.
 
 **A press drains the poller before it writes**, through `prepareForTinycastPasteboardMutation`. A
 copy made inside the 0.5s poll interval would otherwise be overwritten unrecorded, and the walk
