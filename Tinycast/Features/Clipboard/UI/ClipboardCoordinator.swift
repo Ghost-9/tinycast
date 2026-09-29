@@ -117,10 +117,12 @@ final class ClipboardCoordinator {
 
     /// Each press pastes the next older text entry into the app in front, never promoting it.
     func pasteNextInSequence() {
+        let now = Date()
+        // Dropped rather than queued, so a held shortcut cannot paste a burst of entries.
+        if let pasteSequence, pasteSequence.isSettling(at: now) { return }
         guard let target = paletteCoordinator.targetApp else { return }
         // A copy made just before the press must reach history, or the walk starts one entry late.
         clipboardManager.prepareForTinycastPasteboardMutation()
-        let now = Date()
         var sequence = continuingPasteSequence(at: now)
         guard let item = sequence.next(in: clipboardStore.items) else {
             core.showMessage("Nothing left to paste", tone: .neutral)

@@ -28,6 +28,8 @@ struct PasteSequenceTests {
         pauseUnderTheTimeoutKeepsTheWalkGoing()
         pauseOfTheFullTimeoutEndsTheWalk()
         eachPasteRestartsTheTimeout()
+        pressInsideTheSettleIntervalIsHeldBack()
+        pressAtTheSettleIntervalGoesThrough()
 
         print("\(passes)/\(passes + failures) passed")
         if failures > 0 { exit(1) }
@@ -117,6 +119,20 @@ struct PasteSequenceTests {
         expect(
             sequence.continues(changeCount: 2, at: paste.addingTimeInterval(PasteSequence.idleTimeout - 1)),
             "the timeout counts from the last paste, not the first press")
+    }
+
+    static func pressInsideTheSettleIntervalIsHeldBack() {
+        var sequence = freshSequence()
+        sequence.recordPaste(changeCount: 2, at: start)
+        let tooSoon = start.addingTimeInterval(PasteSequence.settleInterval / 2)
+        expect(sequence.isSettling(at: tooSoon), "a press before the last ⌘V can land is held back")
+    }
+
+    static func pressAtTheSettleIntervalGoesThrough() {
+        var sequence = freshSequence()
+        sequence.recordPaste(changeCount: 2, at: start)
+        let settled = start.addingTimeInterval(PasteSequence.settleInterval)
+        expect(!sequence.isSettling(at: settled), "a press once the last paste has landed goes through")
     }
 
     static func freshSequence() -> PasteSequence {

@@ -3,6 +3,8 @@ import Foundation
 /// Paste Sequentially's walk down text history, newest first, frozen when the walk begins.
 struct PasteSequence: Sendable {
     static let idleTimeout: TimeInterval = 60
+    /// Outlasts ⌘V's post delay and the target's read, so the next write cannot beat that read.
+    static let settleInterval: TimeInterval = 0.25
 
     /// Ids rather than items, so an entry deleted mid-walk is skipped instead of pasted.
     private let entryIDs: [ClipboardItem.ID]
@@ -19,6 +21,10 @@ struct PasteSequence: Sendable {
 
     func continues(changeCount: Int, at now: Date) -> Bool {
         changeCount == self.changeCount && now.timeIntervalSince(lastPaste) < Self.idleTimeout
+    }
+
+    func isSettling(at now: Date) -> Bool {
+        now.timeIntervalSince(lastPaste) < Self.settleInterval
     }
 
     /// Nil at the end, where the walk stops rather than wrap back to the newest entry.

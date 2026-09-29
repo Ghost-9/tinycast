@@ -480,3 +480,8 @@ user copied since, and a pause of `PasteSequence.idleTimeout` (60s) since the la
 same; either starts the walk over from the newest entry. Past the oldest entry a press shows
 **Nothing left to paste** rather than wrapping. The pasteboard keeps the last entry pasted, as after
 any other Tinycast paste.
+
+**A press within `PasteSequence.settleInterval` (0.25s) of the last paste is dropped, not queued.**
+`pasteInPlace` writes the pasteboard at once and posts ⌘V 50ms later, and the target reads the
+pasteboard only when it handles that ⌘V. A press inside that gap would swap the pasteboard first:
+one entry pasted twice, another skipped. A queue would replay a held shortcut as a burst.

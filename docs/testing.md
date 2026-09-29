@@ -409,7 +409,8 @@ caches, TCC grants and login item, so this cannot disturb an installed copy.
 - Off then on again: existing clips come back; Clear history erases them while it is still off
 - Paste Sequentially, bound to a shortcut: copy A, B, C, and three presses paste C, B, A into
   the field in front; a fourth says **Nothing left to paste**; a new copy or a minute's pause
-  starts over from the newest; the history's order is unchanged afterwards
+  starts over from the newest; the history's order is unchanged afterwards; holding the shortcut
+  or double-pressing it fast never pastes one entry twice
 - A text, link, image and file row each drag into another app; a click still selects, a double
   click still pastes, and a right click still opens ⌘K
 
