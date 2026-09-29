@@ -639,6 +639,8 @@ caches, TCC grants and login item, so this cannot disturb an installed copy.
 ### System actions and window management
 
 - A confirmation-gated action (Restart, Quit All) confirms, showing the subject's own glyph
+- Empty Trash confirms while Finder's "Show warning before emptying the Trash" is on, and runs
+  without a dialog once it is off
 - Volume actions show the volume HUD; everything else shows the message pill
 - Holding a bound hotkey does **not** stack dialogs
 - Window commands move the window you were last in; cycle-on-repeat steps ½ → ⅓ → ⅔
