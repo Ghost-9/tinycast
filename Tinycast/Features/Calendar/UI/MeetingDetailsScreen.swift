@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One meeting's page. ↵, ⌘↵ and ⌘K act on it exactly as on its schedule row.
+/// One meeting's page. ↵, ⌘↵, ⌘O and ⌘K act on it exactly as on its schedule row.
 struct MeetingDetailsScreen: PaletteScreen {
     let store: CalendarStore
     let core: AppCore
@@ -25,9 +25,13 @@ struct MeetingDetailsScreen: PaletteScreen {
     }
 
     func secondary(at selection: Int) -> Bool {
-        guard let meeting, meeting.link != nil else { return false }
-        core.calendarCoordinator.copyLink(meeting)
-        return true
+        guard let meeting else { return false }
+        return MeetingActionsMenu.secondary(meeting: meeting, core: core)
+    }
+
+    func perform(_ shortcut: PaletteShortcut, at selection: Int) -> Bool {
+        guard let meeting else { return false }
+        return MeetingActionsMenu.perform(shortcut, meeting: meeting, core: core, offersDetails: false)
     }
 
     func body(selection: Int, scroll: ScrollIntent) -> AnyView {

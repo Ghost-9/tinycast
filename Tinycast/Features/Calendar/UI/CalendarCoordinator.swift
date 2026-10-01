@@ -304,6 +304,10 @@ final class CalendarCoordinator {
         join(meeting)
     }
 
+    func meeting(entryID: String) -> MeetingEvent? {
+        MeetingEvent.id(fromEntryID: entryID).flatMap(store.event(id:))
+    }
+
     /// `uninvited` marks an auto join, the only case that may have to ask before it acts.
     func join(_ meeting: MeetingEvent, uninvited: Bool = false) {
         guard let link = meeting.link else {

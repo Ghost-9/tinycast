@@ -60,6 +60,10 @@ struct PaletteShortcutTests {
             "an extra Option still reads ⇧⌘T")
         expect(resolve("y", command: true), .quickLook, "⌘Y toggles Quick Look")
         expect(resolve("y", command: true, shift: true), .quickLook, "an extra Shift still reads ⌘Y")
+        expect(resolve("o", command: true), .openInApp, "⌘O opens the row in its own app")
+        expect(resolve("o", command: true, shift: true), nil, "⇧⌘O is not the open chord")
+        expect(resolve("i", command: true), .showDetails, "⌘I shows the row's details")
+        expect(resolve("i", command: true, shift: true), nil, "⇧⌘I is not the details chord")
 
         expect(resolve("x", control: true), .delete, "⌃X deletes the row")
         expect(resolve("x", shift: true, control: true), .deleteAll, "⌃⇧X deletes everything")
@@ -89,8 +93,8 @@ struct PaletteShortcutTests {
         expect(resolve("a"), nil, "typing is never a chord")
 
         let expanded: [PaletteShortcut] = [
-            .copyFile, .copyName, .copyPath, .copyText, .pasteFile, .quickLook, .toggleFavorite,
-            .hideFromSearch, .quit, .restart
+            .copyFile, .copyName, .copyPath, .copyText, .pasteFile, .quickLook, .openInApp,
+            .showDetails, .toggleFavorite, .hideFromSearch, .quit, .restart
         ]
         let anywhere: [PaletteShortcut] = [
             .commandDelete, .delete, .deleteAll, .pin, .favoriteSlot(0), .continueInChat, .newItem,
@@ -105,7 +109,7 @@ struct PaletteShortcutTests {
 
         let closing: [PaletteShortcut] = [
             .delete, .deleteAll, .copyFile, .copyName, .copyPath, .copyText, .copyCalculation,
-            .quickLook, .toggleFavorite, .hideFromSearch, .newItem, .settings
+            .quickLook, .openInApp, .showDetails, .toggleFavorite, .hideFromSearch, .newItem, .settings
         ]
         let leaving: [PaletteShortcut] = [
             .commandDelete, .pasteFile, .quit, .restart, .pin, .favoriteSlot(0), .continueInChat

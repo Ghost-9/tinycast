@@ -184,17 +184,20 @@ already-finished one with it.
 
 ## The details page
 
-`Show Details`, in a meeting's ⌘K menu on the card and on every schedule row, pushes
-`.meetingDetails`. `CalendarCoordinator.showDetails(of:)` has `CalendarStore` load the details
-before the push, so the page's first frame is already filled. The store queries only that
-occurrence's own window on its own calendar and matches the occurrence by `MeetingEvent.id`, so a
-recurring series yields this instance rather than its master.
+`MeetingActionsMenu` is a meeting's ⌘K menu everywhere it is a row: the card, the launcher's Meetings
+section, My Schedule and the details page. Its `secondary` and `perform` answer the menu's chords —
+⌘↵ copies the link, ⌘O opens Calendar, ⌘I shows details — so every label has a key that works.
+
+`Show Details` pushes `.meetingDetails`. `CalendarCoordinator.showDetails(of:)` has `CalendarStore`
+load the details before the push, so the page's first frame is already filled. The store queries only
+that occurrence's own window on its own calendar and matches the occurrence by `MeetingEvent.id`, so
+a recurring series yields this instance rather than its master.
 
 `CalendarStore.details` is re-read at the end of every `reload`, so the page follows an edit the
 same way every other surface does, and goes to `This meeting is no longer available` when the event
 is deleted or cancelled. Leaving the mode clears it, so a closed page never costs a query.
 
-↵, ⌘↵ and ⌘K act on the page's meeting exactly as on its row. Its own ⌘K menu leaves out
+↵, ⌘↵, ⌘O and ⌘K act on the page's meeting exactly as on its row. Its own ⌘K menu leaves out
 `Show Details`, which would only push the page it is on.
 
 `MeetingDetails.plainText(fromNotes:)` turns a description some servers store as HTML into text,

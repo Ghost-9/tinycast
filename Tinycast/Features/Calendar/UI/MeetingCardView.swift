@@ -74,7 +74,7 @@ extension MeetingEvent.CalendarColor {
     var nsColor: NSColor { NSColor(srgbRed: red, green: green, blue: blue, alpha: 1) }
 }
 
-/// Actions for a meeting, shared by the card, every schedule row and the details page.
+/// Actions for a meeting, shared by the card, every launcher and schedule row and the details page.
 @MainActor
 enum MeetingActionsMenu {
     static func content(
@@ -94,16 +94,37 @@ enum MeetingActionsMenu {
         items.append(
             PopoverMenuItem(
                 title: "Open in Calendar", systemImage: "calendar", startsSection: true,
-                shortcut: meeting.link == nil ? "↵" : nil
+                shortcut: meeting.link == nil ? "↵" : "⌘O"
             ) {
                 core.calendarCoordinator.openInCalendar(meeting)
             })
         if offersDetails {
             items.append(
-                PopoverMenuItem(title: "Show Details", systemImage: "info.circle") {
+                PopoverMenuItem(title: "Show Details", systemImage: "info.circle", shortcut: "⌘I") {
                     core.calendarCoordinator.showDetails(of: meeting)
                 })
         }
         return PopoverMenuContent(header: meeting.title, items: items)
+    }
+
+    /// ⌘↵ — false for a meeting with no link, leaving the key unhandled.
+    static func secondary(meeting: MeetingEvent, core: AppCore) -> Bool {
+        guard meeting.link != nil else { return false }
+        core.calendarCoordinator.copyLink(meeting)
+        return true
+    }
+
+    static func perform(
+        _ shortcut: PaletteShortcut, meeting: MeetingEvent, core: AppCore, offersDetails: Bool = true
+    ) -> Bool {
+        switch shortcut {
+        case .openInApp:
+            core.calendarCoordinator.openInCalendar(meeting)
+        case .showDetails where offersDetails:
+            core.calendarCoordinator.showDetails(of: meeting)
+        default:
+            return false
+        }
+        return true
     }
 }

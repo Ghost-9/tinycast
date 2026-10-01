@@ -421,9 +421,10 @@ per-item reset in its Actions menu, and users can clear all learned ranking in G
 
 ## The empty list
 
-Favorites, then Suggestions, then one section per kind. Each kind section is sorted by the
-tiebreak, so what the user opens comes first and never-used entries still read alphabetically below
-it. The sort runs within each contiguous kind run of the publication order,
+Favorites, then Meetings, then Suggestions, then one section per kind. Meetings sit above
+Suggestions because a meeting is worth opening only until it ends. Each kind section is sorted by
+the tiebreak, so what the user opens comes first and never-used entries still read alphabetically
+below it. The sort runs within each contiguous kind run of the publication order,
 so the sectioned view stays 1:1 with the flat selection.
 
 ### Suggestions
@@ -442,9 +443,9 @@ never suggested, however often they are opened:
    index, so it is never offered.
 
 A suggested entry leaves its kind section below, so no row appears twice. `AppIndex.Results` carries
-`favoriteCount` and `suggestionCount`, which `LauncherScreen` hands to `LauncherList` for its two
-leading headers. **Show suggestions** in Settings › General › Search turns the section off
-(`launcherShowsSuggestions`, carried by a settings backup). `HotKeyManager.revision` is part of
+`favoriteCount`, `meetingCount` and `suggestionCount`, which `LauncherScreen` hands to `LauncherList`
+for its three leading headers. **Show suggestions** in Settings › General › Search turns the section
+off (`launcherShowsSuggestions`, carried by a settings backup). `HotKeyManager.revision` is part of
 `AppIndex`'s results key, because binding a shortcut takes an entry out of the section.
 
 ## System actions
