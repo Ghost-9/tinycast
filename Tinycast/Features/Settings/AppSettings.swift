@@ -423,10 +423,8 @@ final class AppSettings {
     }
 
     /// Narrows the fetch itself rather than what is shown, so every surface reads the same days.
-    var calendarIncludesTomorrow: Bool {
-        didSet {
-            defaults.set(calendarIncludesTomorrow, forKey: Key.calendarIncludesTomorrow.rawValue)
-        }
+    var calendarSpan: MeetingSpan {
+        didSet { defaults.set(calendarSpan.rawValue, forKey: Key.calendarSpan.rawValue) }
     }
 
     var joinWindowMinutes: JoinWindow {
@@ -697,9 +695,10 @@ final class AppSettings {
             defaults.object(forKey: Key.calendarLauncherLimit.rawValue)
             .flatMap { $0 as? Int }
             .flatMap(CalendarLauncherLimit.init(rawValue:)) ?? .five
-        calendarIncludesTomorrow =
-            defaults.object(forKey: Key.calendarIncludesTomorrow.rawValue) == nil
-            || defaults.bool(forKey: Key.calendarIncludesTomorrow.rawValue)
+        // No case is zero, so an unset key falls through to the default.
+        calendarSpan =
+            MeetingSpan(rawValue: defaults.integer(forKey: Key.calendarSpan.rawValue))
+            ?? .todayAndTomorrow
         joinWindowMinutes =
             JoinWindow(rawValue: defaults.integer(forKey: Key.joinWindowMinutes.rawValue)) ?? .five
         autoJoinMeetings = defaults.bool(forKey: Key.autoJoinMeetings.rawValue)

@@ -26,9 +26,10 @@ camera preview, and individual events as searchable launcher entries.
   everyone joins late; the `min` is why it never outlives a meeting shorter than the lead.
 - **Recurrence comes from `predicateForEvents(withStart:end:calendars:)`**, which expands occurrences
   itself. Masters are never fetched and recurrence is never hand-rolled.
-- **`MeetingSpan` narrows the fetch, never the surfaces.** `calendarIncludesTomorrow` reaches
-  EventKit through `CalendarStore.span`, so dropping tomorrow shortens the query and every surface
-  follows from the one snapshot — no surface filters days out of a snapshot fetched wider. The same
+- **`MeetingSpan` narrows the fetch, never the surfaces.** `calendarSpan` reaches EventKit through
+  `CalendarStore.span`, so a shorter span shortens the query and every surface — the menu bar's
+  agenda included — follows from the one snapshot. No surface filters days out of a snapshot fetched
+  wider, which is why `Days to Show` sits under Menu Bar yet sets every surface's days. The same
   type owns the wording, so a sentence naming the days can never outlive the query it describes.
 - **`UpcomingWindow.agenda` is the only place that says which events count** — timed, not declined,
   not over, in start order. The card, the chord, the menu bar, the schedule and the launcher slice all
@@ -61,7 +62,9 @@ camera preview, and individual events as searchable launcher entries.
   Ten named services, plus `.generic` for any other `http(s)` link the event carries.
 - **`MeetingEvent`** — one occurrence, flattened out of `EKEvent`.
 - **`UpcomingWindow`** — `agenda`, `carded`, `joinable`, `countdown` and a row's `rowPill`.
-- **`MeetingDay`** — the Today / Tomorrow buckets, mirroring the clipboard's `DateBucket`.
+- **`MeetingDay`** — the day a meeting falls on, titled `Today, Oct 2`, `Tomorrow, Oct 3`, then
+  `Monday, Oct 5`. A meeting still running from before midnight is Today. `MeetingDayGroup.grouping` cuts
+  the agenda into days, so My Schedule and the menu bar head the same days the same way.
 - **`MeetingSpan`** — how far ahead the store reads, and the phrasing that names those days.
 - **`MenuBarSummary`** — which event the menu bar carries, and for how long.
 - **`AutoJoinPolicy`** — whether a meeting should open itself, and which one.
@@ -163,10 +166,10 @@ is nothing to acknowledge.
 
 ## Reading the store
 
-`CalendarStore` queries `MeetingSpan.interval(from:calendar:)` — midnight today through midnight one
-or two days on, in the Mac's own zone — and re-reads whenever `span` changes under it, but only once
+`CalendarStore` queries `MeetingSpan.interval(from:calendar:)` — midnight today through midnight one,
+two or seven days on, in the Mac's own zone — and re-reads whenever `span` changes under it, but only once
 it has read at all, so enabling the feature never fires two queries. **The fetch stays on the main
-actor**: a day or two of events is a sub-millisecond query and `EKEventStore` is not `Sendable`, so
+actor**: at most a week of events is a sub-millisecond query and `EKEventStore` is not `Sendable`, so
 pushing it off-main would be a fight with no measurable gain. Both the launch-time load and the
 per-summon refresh are deferred into a `Task`, because the first EventKit query pays for its XPC
 warm-up and both of those paths are protected.
@@ -234,13 +237,22 @@ minute tick. SwiftUI writes
 `false` back through `isInserted` when it removes the item itself, so the insertion setter ignores a
 removal while the item is hidden for being empty: only a drag-out turns the display to `.disabled`.
 
-`CalendarMenuBarMenu` lists calendar actions only — `Join <title>`, `Open in Calendar...` and
-`Dismiss` for the displayed event, then `My Schedule` and `Calendar Settings...` — so the two menus
-never repeat each other. `Join` is absent for a linkless appointment rather than opening Calendar under a name that
-lies. **A bare click never joins**: the menu bar is not a button, and a mis-click there would open a
-call.
+`CalendarMenuBarMenu` lists calendar actions only — `Join <title>`, `Open in Calendar` and
+`Dismiss Event` for the displayed event, then the agenda, then `My Schedule` (⌘O) and
+`Calendar Settings…` (⌘,) — so the two menus never repeat each other. Each block is a `Section`, so
+SwiftUI draws the separators and a missing block never leaves a stray one. `Join` is absent for a linkless appointment rather than
+opening Calendar under a name that lies. **A bare click never joins**: the menu bar is not a button,
+and a mis-click there would open a call.
 
-`Dismiss` takes the displayed occurrence out of the menu bar, and `MenuBarSummary.event` filters it
+The agenda is `CalendarCoordinator.menuBarAgenda`: `UpcomingWindow.agenda` over the span, read off
+`MeetingClock`, so a meeting that ends leaves on the minute, then cut into one section per day by
+`MeetingDayGroup`. Each row reads `start – end title` beside a ring in its calendar's colour, filled
+while the meeting is under way, and goes through `join`, so a linkless event opens Calendar and every gate still applies. **It is the schedule, not
+the title's candidate list**: it ignores `Only show events with meetings` and dismissals, which
+decide only what the item itself shows, and keeps the displayed event so the list never shifts
+under a handover.
+
+`Dismiss Event` takes the displayed occurrence out of the menu bar, and `MenuBarSummary.event` filters it
 out exactly as it filters a lapsed one — so the next event inside its own lead takes the space with
 no second rule, and with nothing behind it the item falls back to the glyph or leaves under **Hide
 when there are no upcoming events**. The set lives on `CalendarCoordinator` and lasts the launch, the
@@ -277,7 +289,7 @@ still lands on top of it. The session, the panel and the stage are the `Camera` 
 ## Settings
 
 The Calendar pane carries the master switch (routed through the coordinator so the consent gate cannot
-be bypassed), the `Include Tomorrow's Events` switch, the `Join Next Meeting` recorder, the
+be bypassed), the `Join Next Meeting` recorder, the
 join-window picker, and the per-calendar checkbox list — one `Form` row holding a `LazyVStack`,
 because a `Form` realizes every row it is handed; a few light rows don't need `LauncherItemsTable`.
 
@@ -288,7 +300,7 @@ defaults to on. Holidays and Birthdays are what people switch off.
 `SettingsBackupCoverage.deliberatelyExcluded`: one arms the app to open links unattended and the
 other turns on the camera, and an import must grant neither. `meetingBrowser` is excluded too: it names an
 app installed on this Mac, which another Mac may not have. The menu-bar settings carry over
-normally, and so does `calendarIncludesTomorrow`: it narrows what is read rather than widening what
+normally, and so does `calendarSpan`: it sets how far ahead is read rather than widening what
 can be reached.
 
 Because the span is a setting, the two sentences that name the days — the consent dialog and the

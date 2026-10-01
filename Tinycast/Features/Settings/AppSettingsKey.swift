@@ -63,7 +63,7 @@ enum AppSettingsKey: String, CaseIterable {
     case calendarEnabled = "calendarEnabled"
     case calendarShowInLauncher = "calendarShowInLauncher"
     case calendarLauncherLimit = "calendarLauncherLimit"
-    case calendarIncludesTomorrow = "calendarIncludesTomorrow"
+    case calendarSpan = "calendarSpan"
     case joinWindowMinutes = "joinWindowMinutes"
     case autoJoinMeetings = "autoJoinMeetings"
     case autoJoinConfirms = "autoJoinConfirms"
