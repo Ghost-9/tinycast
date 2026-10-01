@@ -13,6 +13,14 @@ enum SyncRecordKind: String, CaseIterable, Codable, Sendable {
     case customWindowSize
     case windowLayout
     case room
+    case quicklink
+    case snippet
+    case note
+    case aiConnection
+    case quickAction
+    case customCommand
+    case mcpServer
+    case installedExtension
 
     var category: SyncCategory {
         switch self {
@@ -20,6 +28,21 @@ enum SyncRecordKind: String, CaseIterable, Codable, Sendable {
         case .shortcut: .shortcuts
         case .favorites, .alias, .hiddenItem, .launcherKinds, .pinnedEmoji: .launcher
         case .customWindowSize, .windowLayout, .room: .windowManagement
+        case .quicklink: .quicklinks
+        case .snippet: .snippets
+        case .note: .notes
+        case .aiConnection, .quickAction: .ai
+        case .customCommand: .customCommands
+        case .mcpServer: .mcpServers
+        case .installedExtension: .extensions
+        }
+    }
+
+    /// A file's text lives on disk already, so the ledger never keeps a second copy of it.
+    var isFileBacked: Bool {
+        switch self {
+        case .snippet, .note: true
+        default: false
         }
     }
 

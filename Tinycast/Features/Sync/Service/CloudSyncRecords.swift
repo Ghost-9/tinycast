@@ -9,18 +9,19 @@ enum CloudSyncRecords {
     struct Item {
         let kind: SyncRecordKind
         let key: String
-        let body: Data
+        let payload: SyncPayload
         let editedAt: Date?
     }
 
     static func item(
-        id: CKRecord.ID, systemFields: Data?, kind: SyncRecordKind, key: String, body: Data,
-        editedAt: Date, deviceID: String
+        id: CKRecord.ID, systemFields: Data?, kind: SyncRecordKind, key: String,
+        payload: SyncPayload, editedAt: Date, deviceID: String
     ) -> CKRecord {
         let record = record(type: itemType, id: id, systemFields: systemFields)
         record.encryptedValues[Field.kind] = kind.rawValue
         record.encryptedValues[Field.key] = key
-        record.encryptedValues[Field.body] = body
+        record.encryptedValues[Field.body] = payload.body
+        record.encryptedValues[Field.secrets] = payload.secrets
         record.encryptedValues[Field.editedAt] = editedAt
         record.encryptedValues[Field.deviceID] = deviceID
         return record
@@ -32,8 +33,11 @@ enum CloudSyncRecords {
             let key = record.encryptedValues[Field.key] as String?,
             let body = record.encryptedValues[Field.body] as Data?
         else { return nil }
+        let secrets = record.encryptedValues[Field.secrets] as Data?
         let editedAt = record.encryptedValues[Field.editedAt] as Date?
-        return Item(kind: kind, key: key, body: body, editedAt: editedAt)
+        return Item(
+            kind: kind, key: key, payload: SyncPayload(body: body, secrets: secrets),
+            editedAt: editedAt)
     }
 
     static func deviceRecordID(_ deviceID: String, zoneID: CKRecordZone.ID) -> CKRecord.ID {
@@ -92,6 +96,7 @@ enum CloudSyncRecords {
         static let kind = "kind"
         static let key = "key"
         static let body = "body"
+        static let secrets = "secrets"
         static let editedAt = "editedAt"
         static let deviceID = "deviceID"
         static let name = "name"

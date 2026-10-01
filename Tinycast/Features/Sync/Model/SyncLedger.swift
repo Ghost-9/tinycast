@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 /// What this Mac and iCloud last agreed on, so a relaunch neither re-sends nor misses a change.
@@ -11,7 +10,7 @@ struct SyncLedger: Codable, Sendable, Equatable {
         /// The local digest waiting to reach iCloud, and when this Mac made that change.
         var pending: String?
         var editedAt: Date?
-        /// The payload both sides last settled on, so a held record can still be applied later.
+        /// The payload both sides settled on, so a held record can apply later; never a file's.
         var body: Data?
         /// Waiting until this Mac can take `body`; never sent or deleted from here meanwhile.
         var isHeld = false
@@ -44,6 +43,8 @@ struct SyncLedger: Codable, Sendable, Equatable {
     var entries: [String: Entry] = [:]
     /// Deletes not yet confirmed, re-queued on every engine start so a fresh state cannot drop one.
     var pendingDeletes: Set<String> = []
+    /// Where each scoped kind last read from, so a moved folder is met afresh rather than diffed.
+    var scopes: [SyncRecordKind: String] = [:]
     var devices: [String: SyncDevice] = [:]
     var deviceSystemFields: Data?
     var lastFetch: Date?
@@ -54,7 +55,7 @@ struct SyncLedger: Codable, Sendable, Equatable {
     }
 
     static func digest(_ body: Data) -> String {
-        SHA256.hash(data: body).map { String(format: "%02x", $0) }.joined()
+        SyncPayload(body: body).digest
     }
 
     var heldCount: Int { entries.values.count(where: \.isHeld) }
@@ -96,12 +97,12 @@ struct SyncLedger: Codable, Sendable, Equatable {
         return changes
     }
 
-    /// iCloud took `body`; a later local edit stays pending.
-    mutating func didSend(_ name: String, body: Data, systemFields: Data) {
+    /// iCloud took `payload`; a later local edit stays pending.
+    mutating func didSend(_ name: String, payload: SyncPayload, systemFields: Data) {
         guard var entry = entries[name] else { return }
-        let digest = Self.digest(body)
+        let digest = payload.digest
         entry.agreed = digest
-        entry.body = body
+        entry.body = entry.kind.isFileBacked ? nil : payload.body
         entry.systemFields = systemFields
         if entry.pending == digest {
             entry.pending = nil
@@ -120,7 +121,7 @@ struct SyncLedger: Codable, Sendable, Equatable {
         }
         var entry = Entry(kind: kind, key: key)
         entry.agreed = localDigest
-        entry.body = body
+        entry.body = kind.isFileBacked ? nil : body
         entry.systemFields = systemFields
         entries[name] = entry
     }
@@ -140,6 +141,7 @@ struct SyncLedger: Codable, Sendable, Equatable {
     /// Turning a category off forgets it, so turning it back on meets iCloud afresh.
     mutating func forget(_ kinds: Set<SyncRecordKind>) {
         entries = entries.filter { !kinds.contains($0.value.kind) }
+        for kind in kinds { scopes[kind] = nil }
     }
 }
 

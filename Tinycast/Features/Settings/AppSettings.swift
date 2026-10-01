@@ -588,6 +588,13 @@ final class AppSettings {
         didSet { defaults.set(cloudSyncEnabled, forKey: Key.cloudSyncEnabled.rawValue) }
     }
 
+    /// Whether API keys and tokens travel too; each Mac decides for itself, and off sends none.
+    var cloudSyncIncludesSecrets: Bool {
+        didSet {
+            defaults.set(cloudSyncIncludesSecrets, forKey: Key.cloudSyncIncludesSecrets.rawValue)
+        }
+    }
+
     var cloudSyncCategories: Set<SyncCategory> {
         didSet {
             defaults.set(
@@ -786,6 +793,7 @@ final class AppSettings {
         cloudSyncEnabled = defaults.bool(forKey: Key.cloudSyncEnabled.rawValue)
         cloudSyncCategories =
             defaults.stringArray(forKey: Key.cloudSyncCategories.rawValue)
-            .map { Set($0.compactMap(SyncCategory.init)) } ?? Set(SyncCategory.allCases)
+            .map { Set($0.compactMap(SyncCategory.init)) } ?? SyncCategory.defaultSelection
+        cloudSyncIncludesSecrets = defaults.bool(forKey: Key.cloudSyncIncludesSecrets.rawValue)
     }
 }

@@ -11,10 +11,17 @@ struct CloudSyncSettingsView: View {
         Binding(get: { settings.cloudSyncEnabled }, set: { coordinator.setEnabled($0) })
     }
 
+    /// A category that runs code asks first, so the switch follows the setting, not the click.
     private func isSyncing(_ category: SyncCategory) -> Binding<Bool> {
         Binding(
             get: { settings.cloudSyncCategories.contains(category) },
-            set: { coordinator.setCategory(category, enabled: $0) })
+            set: { enabled in Task { await coordinator.setCategory(category, enabled: enabled) } })
+    }
+
+    private var includesSecrets: Binding<Bool> {
+        Binding(
+            get: { settings.cloudSyncIncludesSecrets },
+            set: { settings.cloudSyncIncludesSecrets = $0 })
     }
 
     var body: some View {
@@ -25,6 +32,11 @@ struct CloudSyncSettingsView: View {
                     Text(summary)
                 }
                 .disabled(!state.isSupported)
+            } header: {
+                SettingsSectionHeader(.iCloudSyncICloudSync)
+            }
+
+            Section {
                 ForEach(SyncCategory.allCases) { category in
                     Toggle(isOn: isSyncing(category)) {
                         Text(category.descriptor.label)
@@ -32,12 +44,17 @@ struct CloudSyncSettingsView: View {
                     }
                     .settingsEnabled(settings.cloudSyncEnabled)
                 }
+                Toggle(isOn: includesSecrets) {
+                    SettingsRowTitle(.iCloudSyncWhatSyncs, "Include API keys and tokens")
+                    Text("AI keys, MCP server headers and variables, and extension passwords")
+                }
+                .settingsEnabled(settings.cloudSyncEnabled)
             } header: {
-                SettingsSectionHeader(.iCloudSyncICloudSync)
+                SettingsSectionHeader(.iCloudSyncWhatSyncs)
             } footer: {
                 Text(
-                    "Everything is end-to-end encrypted. Permissions, folders, clipboard history "
-                        + "and what the launcher learns stay on each Mac.")
+                    "Everything is end-to-end encrypted. Permissions, folder locations, clipboard "
+                        + "history, AI chats and what the launcher learns stay on each Mac.")
             }
 
             if settings.cloudSyncEnabled {

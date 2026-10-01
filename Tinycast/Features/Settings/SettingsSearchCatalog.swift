@@ -598,6 +598,12 @@ enum SettingsSearchCatalog {
             .iCloudSyncICloudSync, "Sync across your Macs",
             keywords: ["icloud", "cloud", "enable", "turn on"]),
         .init(
+            group: .iCloudSyncWhatSyncs, "What Syncs",
+            keywords: ["categories", "notes", "snippets", "quicklinks", "extensions", "commands"]),
+        .init(
+            .iCloudSyncWhatSyncs, "Include API keys and tokens",
+            keywords: ["secrets", "passwords", "keychain", "credentials"]),
+        .init(
             group: .iCloudSyncStatus, "Sync Status",
             keywords: ["last synced", "sync now", "error"]),
         .init(

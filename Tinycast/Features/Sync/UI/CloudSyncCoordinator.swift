@@ -19,12 +19,20 @@ final class CloudSyncCoordinator {
         }
     }
 
-    func setCategory(_ category: SyncCategory, enabled: Bool) {
-        if enabled {
-            settings.cloudSyncCategories.insert(category)
-        } else {
+    /// A category that runs code here asks first, as switching on extensions does.
+    func setCategory(_ category: SyncCategory, enabled: Bool) async {
+        guard enabled else {
             settings.cloudSyncCategories.remove(category)
+            return
         }
+        if let consent = category.descriptor.consent {
+            let confirmed = await core.confirm(
+                title: "Sync \(category.descriptor.label)?",
+                message: consent + " Turn this on only if you trust every Mac on this iCloud account.",
+                symbol: "exclamationmark.icloud", confirmTitle: "Sync", confirmRole: .standard)
+            guard confirmed else { return }
+        }
+        settings.cloudSyncCategories.insert(category)
     }
 
     func syncNow() async {

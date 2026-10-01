@@ -30,6 +30,9 @@ produces, rendered natively into the palette. No Electron, no browser, no Node.j
   committed — never edit it by hand; change `Scripts/raycast-runtime/src/` and rebuild.
 - **`ExtensionScreen` is the only place extension row order is decided**, so the flat palette selection
   keeps matching the visible rows — the same invariant every other palette screen holds.
+- **Another Mac never installs anything here unasked.** [iCloud sync](icloud-sync.md)'s Extensions
+  category confirms before it turns on, installs only while extensions are enabled here, and installs
+  only from a registry enabled here. `ExtensionSyncBinding` owns that, inside this folder.
 - **Off means off.** `extensionsEnabled` is opt-in, and `ExtensionManager.setEnabled(false)` stops the
   foreground and menu commands, removes status items and refresh tasks, discards JS contexts, empties
   the installed set and clears the launcher rows;

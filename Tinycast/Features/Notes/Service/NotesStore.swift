@@ -167,6 +167,35 @@ final class NotesStore {
         }
     }
 
+    /// What became of a note another Mac changed.
+    enum RemoteOutcome: Sendable {
+        case replaced
+        /// A draft typed here kept the note, so the caller saves the other version beside it.
+        case keptDraft
+        case failed
+    }
+
+    /// Another Mac's version of a note; a draft typed here is never replaced by it.
+    func acceptRemote(_ remote: String, for id: NoteID) async -> RemoteOutcome {
+        guard id != activeID || !isDirty else { return .keptDraft }
+        let repository = repository
+        let result = await detached {
+            try repository.put(id: id, source: remote)
+            return try repository.list()
+        } recover: {
+            repository.fileURL(for: id)
+        }
+        guard case .success(let listed) = result, repository.notesDirectory == notesDirectory
+        else { return .failed }
+        summaries = listed
+        guard id == activeID else { return .replaced }
+        // Typed while the file was written: the draft saves over it, so the other side is a copy.
+        guard !isDirty else { return .keptDraft }
+        source = remote
+        editorEpoch &+= 1
+        return .replaced
+    }
+
     @discardableResult
     func select(
         _ id: NoteID,

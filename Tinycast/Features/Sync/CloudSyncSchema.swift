@@ -80,6 +80,35 @@ enum CloudSyncSchema {
                     }
                 },
                 remove: { _ = rooms.remove(id: $0) })
+        case .quicklink:
+            let quicklinks = core.quicklinks
+            return codable(
+                kind, list: { quicklinks.isAvailable ? quicklinks.quicklinks : nil },
+                find: quicklinks.quicklink(id:),
+                add: { try quicklinks.add($0) }, update: { try quicklinks.update($0) },
+                remove: { try? quicklinks.remove(id: $0) })
+        case .customCommand:
+            let commands = core.customCommands
+            return codable(
+                kind, list: { commands.commands }, find: commands.command(id:),
+                add: { _ = try commands.add($0) }, update: { try commands.update($0) },
+                remove: { _ = commands.remove(id: $0) })
+        case .quickAction:
+            let actions = core.customQuickActions
+            return codable(
+                kind, list: { actions.isAvailable ? actions.actions : nil }, find: actions.action(id:),
+                add: { try actions.add($0) }, update: { try actions.update($0) },
+                remove: { _ = try? actions.remove(id: $0) })
+        case .aiConnection:
+            return aiConnections(core)
+        case .mcpServer:
+            return mcpServers(core)
+        case .snippet:
+            return snippets(core.snippetsStore)
+        case .note:
+            return notes(core.notesStore)
+        case .installedExtension:
+            return ExtensionSyncBinding.make(extensions: core.extensions, settings: core.settings)
         }
     }
 
@@ -105,6 +134,180 @@ enum CloudSyncSchema {
             },
             remove: { _ in },
             isAvailable: { synced[$0] != nil })
+    }
+
+    /// The files in the snippets folder, written straight to it; the store's watcher reloads.
+    private static func snippets(_ store: SnippetsStore) -> SyncBinding {
+        let reader = FolderSyncReader()
+        return SyncBinding(
+            kind: .snippet,
+            observe: {
+                _ = store.snippets
+                _ = store.snippetsDirectory
+            },
+            read: { await reader.read(store.snippetsDirectory) },
+            write: { name, payload in
+                await FolderSyncReader.write(payload.body, named: name, in: store.snippetsDirectory)
+            },
+            remove: { name in await FolderSyncReader.trash(named: name, in: store.snippetsDirectory) },
+            scope: { store.snippetsDirectory.path },
+            keepCopy: { name, body in
+                await FolderSyncReader.writeCopy(body, of: name, in: store.snippetsDirectory)
+            })
+    }
+
+    /// Notes go through their store, which never lets another Mac's version replace a draft.
+    private static func notes(_ store: NotesStore) -> SyncBinding {
+        let reader = FolderSyncReader()
+        func keepCopy(of name: String, _ body: Data) async -> Bool {
+            guard let source = String(data: body, encoding: .utf8) else { return false }
+            let title = (SyncFileName.conflictCopy(of: name) as NSString).deletingPathExtension
+            return await store.importNotes([.init(title: title, source: source)]) == 1
+        }
+        return SyncBinding(
+            kind: .note,
+            observe: {
+                _ = store.summaries
+                _ = store.notesDirectory
+            },
+            read: { await reader.read(store.notesDirectory) },
+            write: { name, payload in
+                guard SyncFileName.isValid(name),
+                    let source = String(data: payload.body, encoding: .utf8)
+                else { return false }
+                switch await store.acceptRemote(source, for: NoteID(rawValue: name)) {
+                case .replaced: return true
+                case .keptDraft: return await keepCopy(of: name, payload.body)
+                case .failed: return false
+                }
+            },
+            remove: { name in
+                let id = NoteID(rawValue: name)
+                guard SyncFileName.isValid(name), store.activeID != id || !store.isDirty else {
+                    return
+                }
+                if store.summaries.contains(where: { $0.id == id }) {
+                    _ = await store.trash(id)
+                } else {
+                    await FolderSyncReader.trash(named: name, in: store.notesDirectory)
+                }
+            },
+            scope: { store.notesDirectory.path },
+            keepCopy: keepCopy)
+    }
+
+    /// A connection, and its API key while keys sync; a key never arriving keeps the one here.
+    private static func aiConnections(_ core: AppCore) -> SyncBinding {
+        let ai = core.aiSettings
+        let settings = core.settings
+        let keys = KeychainSecretStore.aiAPIKeys
+        return SyncBinding(
+            kind: .aiConnection,
+            observe: {
+                _ = ai.connections
+                _ = settings.cloudSyncIncludesSecrets
+            },
+            read: {
+                let connections = ai.connections
+                let apiKeys: [UUID: String] =
+                    settings.cloudSyncIncludesSecrets
+                    ? await Task.detached(priority: .utility) {
+                        var found: [UUID: String] = [:]
+                        for connection in connections {
+                            found[connection.id] = try? keys.secret(for: connection.id)
+                        }
+                        return found
+                    }.value : [:]
+                var records: [String: SyncPayload] = [:]
+                for connection in connections {
+                    guard let body = SyncBinding.encode(connection) else { continue }
+                    records[key(connection.id)] = SyncPayload(
+                        body: body, secrets: apiKeys[connection.id].map { Data($0.utf8) })
+                }
+                return records
+            },
+            write: { name, payload in
+                guard let connection = SyncBinding.decode(AIConnection.self, from: payload.body),
+                    key(connection.id) == name
+                else { return false }
+                if ai.connection(id: connection.id) != connection { ai.save(connection) }
+                guard settings.cloudSyncIncludesSecrets,
+                    let apiKey = payload.secrets.flatMap({ String(data: $0, encoding: .utf8) })
+                else { return true }
+                let id = connection.id
+                return await Task.detached(priority: .utility) {
+                    guard (try? keys.secret(for: id)) != apiKey else { return true }
+                    return (try? keys.setSecret(apiKey, for: id)) != nil
+                }.value
+            },
+            remove: { name in
+                guard let id = UUID(uuidString: name) else { return }
+                ai.removeConnection(id: id)
+                await Task.detached(priority: .utility) { try? keys.removeSecret(for: id) }.value
+            })
+    }
+
+    /// A server, with its header and variables while secrets sync; trust never leaves its Mac.
+    private static func mcpServers(_ core: AppCore) -> SyncBinding {
+        struct Shared: Codable {
+            var headerValue: String
+            var environment: [String: String]
+        }
+        let store = core.mcpSettings
+        let settings = core.settings
+        let secretStore = MCPSecretStore()
+        return SyncBinding(
+            kind: .mcpServer,
+            observe: {
+                _ = store.servers
+                _ = settings.cloudSyncIncludesSecrets
+            },
+            read: {
+                let servers = store.servers
+                let secrets: [UUID: MCPSecretStore.Secrets] =
+                    settings.cloudSyncIncludesSecrets
+                    ? await Task.detached(priority: .utility) {
+                        Dictionary(
+                            uniqueKeysWithValues: servers.map { ($0.id, secretStore.secrets(for: $0.id)) })
+                    }.value : [:]
+                var records: [String: SyncPayload] = [:]
+                for server in servers {
+                    var shared = server
+                    shared.trust = .ask
+                    guard let body = SyncBinding.encode(shared) else { continue }
+                    let secret = secrets[server.id].flatMap {
+                        SyncBinding.encode(
+                            Shared(headerValue: $0.headerValue, environment: $0.environment))
+                    }
+                    records[key(server.id)] = SyncPayload(body: body, secrets: secret)
+                }
+                return records
+            },
+            write: { [unowned core] name, payload in
+                guard var server = SyncBinding.decode(MCPServer.self, from: payload.body),
+                    key(server.id) == name
+                else { return false }
+                let existing = store.server(id: server.id)
+                server.trust = existing?.trust ?? .ask
+                let id = server.id
+                let stored = await Task.detached(priority: .utility) {
+                    secretStore.secrets(for: id)
+                }.value
+                var secrets = stored
+                if settings.cloudSyncIncludesSecrets,
+                    let shared = payload.secrets.flatMap({ SyncBinding.decode(Shared.self, from: $0) })
+                {
+                    secrets.headerValue = shared.headerValue
+                    secrets.environment = shared.environment
+                }
+                // Saving reconnects the server, so an unchanged record must not touch it.
+                guard existing != server || secrets != stored else { return true }
+                return (try? core.mcpCoordinator.save(server, secrets: secrets)) != nil
+            },
+            remove: { [unowned core] name in
+                guard let id = UUID(uuidString: name), store.server(id: id) != nil else { return }
+                try? core.mcpCoordinator.remove(id)
+            })
     }
 
     private static func aliases(_ store: AliasStore) -> SyncBinding {
@@ -151,6 +354,36 @@ enum CloudSyncSchema {
             remove: { _ in })
     }
 
+    /// Items keyed by id; an unchanged one is left alone, and one the store refuses is held.
+    private static func codable<Record: Codable & Equatable & Identifiable>(
+        _ kind: SyncRecordKind, list: @escaping () -> [Record]?,
+        find: @escaping (UUID) -> Record?, add: @escaping (Record) throws -> Void,
+        update: @escaping (Record) throws -> Void, remove: @escaping (UUID) -> Void
+    ) -> SyncBinding where Record.ID == UUID {
+        SyncBinding(
+            kind: kind,
+            read: {
+                list().map { items in
+                    Dictionary(
+                        uniqueKeysWithValues: items.compactMap { item in
+                            SyncBinding.encode(item).map { (key(item.id), $0) }
+                        })
+                }
+            },
+            write: { name, body in
+                guard let record = SyncBinding.decode(Record.self, from: body),
+                    key(record.id) == name
+                else { return false }
+                guard let existing = find(record.id) else { return (try? add(record)) != nil }
+                return existing == record || (try? update(record)) != nil
+            },
+            remove: { name in
+                if let id = UUID(uuidString: name) { remove(id) }
+            })
+    }
+
+    private static func key(_ id: UUID) -> String { id.uuidString.lowercased() }
+
     /// Records in settings.json's own spelling, which already leaves out what is machine-local.
     private static func records<Record>(
         _ kind: SyncRecordKind, list: @escaping () -> [Record], id: KeyPath<Record, UUID>,
@@ -164,13 +397,12 @@ enum CloudSyncSchema {
             read: {
                 Dictionary(
                     uniqueKeysWithValues: list().map {
-                        ($0[keyPath: id].uuidString.lowercased(),
-                            SettingsFileFormat.render(value: encode($0)))
+                        (key($0[keyPath: id]), SettingsFileFormat.render(value: encode($0)))
                     })
             },
             write: { key, body in
                 guard let json = SettingsFileFormat.parse(value: body), let record = decode(json),
-                    record[keyPath: id].uuidString.lowercased() == key
+                    Self.key(record[keyPath: id]) == key
                 else { return false }
                 // A name another record holds here is refused, which holds the record.
                 return (try? upsert(record)) != nil

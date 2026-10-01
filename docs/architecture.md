@@ -34,7 +34,7 @@ Independently of the folder tree, every mature subsystem has converged on the sa
 │ MenuSearch{Item,Shortcut,Query,TreeNode,SnapshotPolicy,Target} ·           │
 │ WindowSwitch{Entry,Order,Query} ·                                          │
 │ Sync{Category,RecordKind,Binding,Ledger,MergePolicy} ·                     │
-│ SyncSettingsCoverage · SyncDevice                                          │
+│ SyncSettingsCoverage · SyncDevice · SyncPayload · SyncFileName             │
 └──────────────────────────────────┬─────────────────────────────────────────┘
                                    │ consumed by
 ┌─ EFFECT ─────────────────────────▼─────────────────────────────────────────┐
@@ -49,7 +49,8 @@ Independently of the folder tree, every mature subsystem has converged on the sa
 │ CalendarStore · MeetingLauncher · MeetingClock · CameraSession ·           │
 │ SupportReminderStore · AXMenuAccess · WindowZOrder · WindowSwitchSweep ·   │
 │ AppleShortcutRunner · SettingsFileRepository · SettingsFileMonitor ·       │
-│ WindowManagementSettingsFile · CloudSyncManager                            │
+│ WindowManagementSettingsFile · CloudSyncManager · FolderSyncReader ·       │
+│ ExtensionSyncBinding                                                       │
 └──────────────────────────────────┬─────────────────────────────────────────┘
                                    │ published through
 ┌─ OBSERVABLE STATE ───────────────▼─────────────────────────────────────────┐

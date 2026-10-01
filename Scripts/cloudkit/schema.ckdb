@@ -4,6 +4,7 @@ DEFINE SCHEMA
         kind        ENCRYPTED STRING,
         key         ENCRYPTED STRING,
         body        ENCRYPTED BYTES,
+        secrets     ENCRYPTED BYTES,
         editedAt    ENCRYPTED TIMESTAMP,
         deviceID    ENCRYPTED STRING,
         GRANT WRITE TO "_creator",

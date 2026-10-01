@@ -101,4 +101,5 @@ enum AppSettingsKey: String, CaseIterable {
     case settingsFileEnabled = "settingsFileEnabled"
     case cloudSyncEnabled = "cloudSyncEnabled"
     case cloudSyncCategories = "cloudSyncCategories"
+    case cloudSyncIncludesSecrets = "cloudSyncIncludesSecrets"
 }

@@ -15,6 +15,8 @@ struct SyncTest {
         testHolding()
         testApply()
         testMergePolicy()
+        testFiles()
+        testSecrets()
         testForget()
         testLedgerRoundTrip()
         testSettingsCoverage()
@@ -96,6 +98,13 @@ struct SyncTest {
             !SyncRecordKind.allCases.contains { $0.category == category }
         }
         check("every category carries at least one kind", empty.isEmpty)
+        let asking = SyncCategory.allCases.filter { $0.descriptor.consent != nil }
+        check(
+            "only categories that run code ask first",
+            Set(asking) == [.customCommands, .mcpServers, .extensions])
+        check(
+            "sync starts with every category that asks nothing",
+            SyncCategory.defaultSelection == Set(SyncCategory.allCases).subtracting(asking))
         check(
             "the stored order is declaration order whatever the set's",
             SyncCategory.ordered(Set(SyncCategory.allCases.reversed())) == SyncCategory.allCases)
@@ -115,7 +124,7 @@ struct SyncTest {
             "an unsent record stays queued without moving its edit time",
             changes.saves == [original.name] && ledger.entries[original.name]?.editedAt == t0)
 
-        ledger.didSend(original.name, body: original.body, systemFields: Data([1]))
+        ledger.didSend(original.name, payload: SyncPayload(body: original.body), systemFields: Data([1]))
         changes = reconcile(&ledger, current(original), at: t1)
         check("a confirmed record is not sent again", changes == .init())
         check(
@@ -141,7 +150,7 @@ struct SyncTest {
         _ = reconcile(&ledger, current(edited), at: t2)
         let third = Record("app:a", "\"z\"")
         _ = reconcile(&ledger, current(third), at: t2)
-        ledger.didSend(third.name, body: edited.body, systemFields: Data([3]))
+        ledger.didSend(third.name, payload: SyncPayload(body: edited.body), systemFields: Data([3]))
         check(
             "confirming an older payload leaves the newer edit pending",
             ledger.entries[third.name]?.pending == third.local.digest
@@ -152,7 +161,7 @@ struct SyncTest {
         var ledger = SyncLedger(deviceID: "this")
         let record = Record("app:a", "\"x\"")
         _ = reconcile(&ledger, current(record), at: t0)
-        ledger.didSend(record.name, body: record.body, systemFields: Data([1]))
+        ledger.didSend(record.name, payload: SyncPayload(body: record.body), systemFields: Data([1]))
 
         var changes = reconcile(&ledger, [:], at: t1)
         check("a record removed here is deleted", changes.deletes == [record.name])
@@ -179,7 +188,7 @@ struct SyncTest {
         let record = Record("hotkey.app.com.example", "{}", kind: .shortcut)
         let kinds: Set<SyncRecordKind> = [.shortcut]
         _ = reconcile(&ledger, current(record), at: t0, syncing: kinds)
-        ledger.didSend(record.name, body: record.body, systemFields: Data([1]))
+        ledger.didSend(record.name, payload: SyncPayload(body: record.body), systemFields: Data([1]))
 
         let changes = reconcile(&ledger, [:], at: t1, syncing: kinds, available: false)
         check("a record this Mac can no longer hold is never deleted", changes.deletes.isEmpty)
@@ -217,9 +226,12 @@ struct SyncTest {
 
     private static func testMergePolicy() {
         func decide(
-            _ entry: SyncLedger.Entry?, server: Date?, first: SyncFirstContact = .preferICloud
+            _ entry: SyncLedger.Entry?, server: Date?, first: SyncFirstContact = .preferICloud,
+            serverDigest: String = "server", keepsBoth: Bool = false
         ) -> SyncMergePolicy.Decision {
-            SyncMergePolicy.decide(local: entry, serverEditedAt: server, firstContact: first)
+            SyncMergePolicy.decide(
+                local: entry, serverDigest: serverDigest, serverEditedAt: server,
+                firstContact: first, keepsBoth: keepsBoth)
         }
 
         var entry = SyncLedger.Entry(kind: .alias, key: "k")
@@ -242,6 +254,74 @@ struct SyncTest {
         entry.editedAt = t1
         check("a tie goes to the server, which every Mac agrees on", decide(entry, server: t1) == .takeServer)
         check("an undated server record wins", decide(entry, server: nil) == .takeServer)
+        check(
+            "the same edit made on both sides is no conflict",
+            decide(entry, server: t0, serverDigest: "local") == .takeServer)
+        check(
+            "text a person wrote keeps both sides",
+            decide(entry, server: t0, keepsBoth: true) == .keepBoth)
+        check(
+            "keeping both still needs a local edit",
+            decide(SyncLedger.Entry(kind: .note, key: "a.md"), server: t0, keepsBoth: true)
+                == .takeServer)
+    }
+
+    // MARK: - Secrets
+
+    private static func testSecrets() {
+        let body = Data("{}".utf8)
+        let plain = SyncPayload(body: body)
+        let keyed = SyncPayload(body: body, secrets: Data("sk-secret".utf8))
+        check("a body alone digests as itself", plain.digest == SyncLedger.digest(body))
+        check("secrets change the digest, so turning them on resends", plain.digest != keyed.digest)
+
+        var ledger = SyncLedger(deviceID: "this")
+        let name = SyncRecordKind.aiConnection.recordName(for: "id")
+        let local = SyncLedger.Local(kind: .aiConnection, key: "id", digest: keyed.digest)
+        _ = ledger.reconcile([name: local], syncing: [.aiConnection], now: t0) { _ in true }
+        ledger.didSend(name, payload: keyed, systemFields: Data([1]))
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .xml
+        let written = (try? encoder.encode(ledger)).flatMap { String(bytes: $0, encoding: .utf8) }
+        check(
+            "a secret never reaches the ledger on disk",
+            written.map {
+                !$0.contains("sk-secret")
+                    && !$0.contains(Data("sk-secret".utf8).base64EncodedString())
+            } == true)
+        check(
+            "while the confirmation still agrees on it",
+            ledger.entries[name]?.agreed == keyed.digest)
+    }
+
+    // MARK: - Files
+
+    private static func testFiles() {
+        check("a plain Markdown name is a file", SyncFileName.isValid("Groceries.md"))
+        check("the extension is matched in any case", SyncFileName.isValid("Plan.MD"))
+        check("a non-ASCII name is a file", SyncFileName.isValid("Café ☕.md"))
+        let refused = ["../escape.md", "sub/dir.md", ".hidden.md", ".md", "notes.txt", "", "/abs.md"]
+        check(
+            "no name can leave the folder, hide, or be anything but Markdown",
+            refused.allSatisfy { !SyncFileName.isValid($0) })
+        check(
+            "a conflict copy sits beside its file",
+            SyncFileName.conflictCopy(of: "Plan.md") == "Plan (conflicted copy).md"
+                && SyncFileName.conflictCopy(of: "Plan.md", attempt: 2)
+                    == "Plan (conflicted copy 2).md")
+        check(
+            "a conflict copy is itself a valid file",
+            SyncFileName.isValid(SyncFileName.conflictCopy(of: "Plan.md")))
+
+        var ledger = SyncLedger(deviceID: "this")
+        let note = Record("Plan.md", "text", kind: .note)
+        _ = reconcile(&ledger, current(note), at: t0, syncing: [.note])
+        ledger.didSend(note.name, payload: SyncPayload(body: note.body), systemFields: Data([1]))
+        check(
+            "the ledger never keeps a file's text, which lives on disk already",
+            ledger.entries[note.name]?.body == nil && ledger.entries[note.name]?.agreed != nil)
+        let changes = reconcile(&ledger, [:], at: t1, syncing: [.note])
+        check("a file removed here is deleted", changes.deletes == [note.name])
     }
 
     private static func testForget() {
@@ -249,10 +329,15 @@ struct SyncTest {
         let alias = Record("app:a", "\"x\"")
         let hidden = Record("app:b", "true", kind: .hiddenItem)
         _ = reconcile(&ledger, current(alias, hidden), at: t0, syncing: [.alias, .hiddenItem])
+        ledger.scopes[.alias] = "/old"
+        ledger.scopes[.hiddenItem] = "/kept"
         ledger.forget([.alias])
         check(
             "forgetting a kind drops only its entries",
             ledger.entries[alias.name] == nil && ledger.entries[hidden.name] != nil)
+        check(
+            "and only its scope",
+            ledger.scopes[.alias] == nil && ledger.scopes[.hiddenItem] == "/kept")
     }
 
     private static func testLedgerRoundTrip() {

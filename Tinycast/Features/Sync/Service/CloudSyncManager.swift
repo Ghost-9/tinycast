@@ -20,7 +20,9 @@ final class CloudSyncManager {
 
     private struct Snapshot {
         var locals: [String: SyncLedger.Local] = [:]
-        var bodies: [String: Data] = [:]
+        var payloads: [String: SyncPayload] = [:]
+        /// The kinds whose stores answered; the rest sit this pass out rather than read as empty.
+        var ready: Set<SyncRecordKind> = []
     }
 
     private struct Applied {
@@ -38,9 +40,11 @@ final class CloudSyncManager {
     private var kinds: Set<SyncRecordKind> = []
     private var engine: CKSyncEngine?
     /// Changed payloads waiting to be sent, by record name; nothing unchanged is held in memory.
-    private var outgoing: [String: Data] = [:]
+    private var outgoing: [String: SyncPayload] = [:]
     /// The payload each record in flight was built from, which its confirmation agrees on.
-    private var inFlight: [String: Data] = [:]
+    private var inFlight: [String: SyncPayload] = [:]
+    /// Every pass that reads and writes the ledger joins this chain, so none interleaves another.
+    private var tail: Task<Void, Never>?
     private var bootTask: Task<Void, Never>?
     private var reconcileTask: Task<Void, Never>?
     private var persistTask: Task<Void, Never>?
@@ -89,21 +93,21 @@ final class CloudSyncManager {
 
     /// A category switched on is fetched in full: this Mac never kept the records it skipped.
     func setCategories(_ categories: Set<SyncCategory>) {
-        let wanted = Self.kinds(for: categories)
-        guard wanted != kinds else { return }
-        let added = wanted.subtracting(kinds)
-        let removed = kinds.subtracting(wanted)
-        kinds = wanted
-        let dropped = ledger.entries.filter { removed.contains($0.value.kind) }.keys
-        for name in dropped { outgoing[name] = nil }
-        ledger.forget(removed)
-        publishStatus()
-        schedulePersist()
-        guard !added.isEmpty else { return }
-        ledger.engineState = nil
-        restart()
+        Task {
+            await serially { [self] in
+                let wanted = Self.kinds(for: categories)
+                guard wanted != kinds else { return }
+                let added = wanted.subtracting(kinds)
+                forget(kinds.subtracting(wanted))
+                kinds = wanted
+                publishStatus()
+                schedulePersist()
+                if !added.isEmpty { refetchEverything() }
+            }
+        }
     }
 
+    /// Not on the chain: the events it triggers are, and would wait on it forever.
     func syncNow() async {
         guard let engine else { return }
         do {
@@ -144,7 +148,7 @@ final class CloudSyncManager {
         if !deleted {
             engine.state.remove(pendingDatabaseChanges: [.deleteZone(Self.zoneID)])
             kinds = syncing
-            reconcile()
+            scheduleReconcile()
         }
         return deleted
     }
@@ -152,16 +156,7 @@ final class CloudSyncManager {
     /// Records this Mac held for want of an app or a free shortcut get another try.
     func retryHeld() {
         guard engine != nil else { return }
-        let applied = ledger.entries.compactMap { name, entry -> Applied? in
-            guard entry.isHeld, kinds.contains(entry.kind), let body = entry.body,
-                bindings[entry.kind]?.write(entry.key, body) == true
-            else { return nil }
-            return Applied(
-                name: name, kind: entry.kind, key: entry.key, body: body,
-                systemFields: entry.systemFields)
-        }
-        settle(applied)
-        publishStatus()
+        Task { await serially { [self] in await retryHeldRecords() } }
     }
 
     /// Synchronous, for termination: a pending write must land before the process goes.
@@ -170,6 +165,16 @@ final class CloudSyncManager {
         persistTask = nil
         guard let data = try? Self.encodeLedger(ledger) else { return }
         try? data.write(to: ledgerURL, options: .atomic)
+    }
+
+    private func serially(_ work: @escaping @MainActor () async -> Void) async {
+        let previous = tail
+        let task = Task { @MainActor in
+            await previous?.value
+            await work()
+        }
+        tail = task
+        await task.value
     }
 
     private func restart() {
@@ -189,8 +194,12 @@ final class CloudSyncManager {
         }
         guard !Task.isCancelled else { return }
         state.availability = .available
-        engine = makeEngine(container)
-        reconcile()
+        let engine = makeEngine(container)
+        self.engine = engine
+        await serially { [self] in
+            guard self.engine === engine else { return }
+            await reconcile()
+        }
         publishDeviceIfStale()
         observeWake()
         NSApplication.shared.registerForRemoteNotifications()
@@ -252,50 +261,84 @@ final class CloudSyncManager {
         }
     }
 
+    /// Records of a kind this Mac skipped were never kept, so only a fresh fetch brings them.
+    private func refetchEverything() {
+        ledger.engineState = nil
+        restart()
+    }
+
+    private func forget(_ removed: Set<SyncRecordKind>) {
+        guard !removed.isEmpty else { return }
+        for (name, entry) in ledger.entries where removed.contains(entry.kind) {
+            outgoing[name] = nil
+        }
+        ledger.forget(removed)
+    }
+
     // MARK: - Local changes
 
     private func scheduleReconcile() {
         guard engine != nil, reconcileTask == nil else { return }
         reconcileTask = Task { [weak self] in
             try? await Task.sleep(for: Self.reconcileDelay)
-            guard !Task.isCancelled else { return }
-            self?.reconcile()
+            guard !Task.isCancelled, let self else { return }
+            reconcileTask = nil
+            await serially { [self] in await reconcile() }
         }
     }
 
-    private func reconcile() {
-        reconcileTask = nil
+    private func reconcile() async {
         guard let engine else { return }
-        retryHeld()
-        let snapshot = observedSnapshot()
+        guard !scopesMoved() else { return refetchEverything() }
+        await retryHeldRecords()
+        let snapshot = await observedSnapshot()
+        guard self.engine === engine else { return }
         let bindings = bindings
-        let changes = ledger.reconcile(snapshot.locals, syncing: kinds, now: .now) { entry in
+        let ready = snapshot.ready
+        let changes = ledger.reconcile(snapshot.locals, syncing: ready, now: .now) { entry in
             bindings[entry.kind]?.isAvailable(entry.key) ?? true
         }
-        for name in changes.saves { outgoing[name] = snapshot.bodies[name] }
+        for name in changes.saves { outgoing[name] = snapshot.payloads[name] }
         for name in changes.deletes { outgoing[name] = nil }
         queue(saves: changes.saves, deletes: changes.deletes, on: engine)
         publishStatus()
         schedulePersist()
     }
 
+    /// A folder that moved is a new collection: forgotten and fetched again, so nothing is deleted.
+    private func scopesMoved() -> Bool {
+        var moved: Set<SyncRecordKind> = []
+        for kind in kinds {
+            guard let scope = bindings[kind]?.scope?() else { continue }
+            if let known = ledger.scopes[kind], known != scope { moved.insert(kind) }
+            if ledger.scopes[kind] != scope { ledger.scopes[kind] = scope }
+        }
+        guard !moved.isEmpty else { return false }
+        let scopes = ledger.scopes
+        forget(moved)
+        ledger.scopes = scopes
+        return true
+    }
+
     /// Re-armed on every pass: the tracking is one-shot, and each pass re-reads every store anyway.
-    private func observedSnapshot() -> Snapshot {
+    private func observedSnapshot() async -> Snapshot {
         withObservationTracking {
-            snapshot(of: kinds)
+            for kind in kinds { bindings[kind]?.observe() }
         } onChange: { [weak self] in
             Task { @MainActor in self?.scheduleReconcile() }
         }
+        return await snapshot(of: kinds)
     }
 
-    private func snapshot(of kinds: Set<SyncRecordKind>) -> Snapshot {
+    private func snapshot(of kinds: Set<SyncRecordKind>) async -> Snapshot {
         var snapshot = Snapshot()
         for kind in kinds {
-            guard let binding = bindings[kind] else { continue }
-            for (key, body) in binding.read() {
+            guard let records = await bindings[kind]?.read() else { continue }
+            snapshot.ready.insert(kind)
+            for (key, payload) in records {
                 let name = kind.recordName(for: key)
-                snapshot.locals[name] = .init(kind: kind, key: key, digest: SyncLedger.digest(body))
-                snapshot.bodies[name] = body
+                snapshot.locals[name] = .init(kind: kind, key: key, digest: payload.digest)
+                snapshot.payloads[name] = payload
             }
         }
         return snapshot
@@ -311,10 +354,25 @@ final class CloudSyncManager {
         engine.state.add(pendingRecordZoneChanges: wanted)
     }
 
+    private func retryHeldRecords() async {
+        var applied: [Applied] = []
+        for (name, entry) in ledger.entries where entry.isHeld && kinds.contains(entry.kind) {
+            guard let body = entry.body, let binding = bindings[entry.kind],
+                await binding.write(entry.key, SyncPayload(body: body))
+            else { continue }
+            applied.append(
+                Applied(
+                    name: name, kind: entry.kind, key: entry.key, body: body,
+                    systemFields: entry.systemFields))
+        }
+        await settle(applied)
+        publishStatus()
+    }
+
     /// Agrees on what each store now reports, so a record just applied is never echoed back.
-    private func settle(_ applied: [Applied]) {
+    private func settle(_ applied: [Applied]) async {
         guard !applied.isEmpty else { return }
-        let snapshot = snapshot(of: Set(applied.map(\.kind)))
+        let snapshot = await snapshot(of: Set(applied.map(\.kind)))
         for item in applied {
             ledger.didApply(
                 item.name, kind: item.kind, key: item.key, body: item.body,
@@ -325,7 +383,7 @@ final class CloudSyncManager {
 
     // MARK: - Remote changes
 
-    private func handle(_ event: CKSyncEngine.Event, from engine: CKSyncEngine) {
+    private func handle(_ event: CKSyncEngine.Event, from engine: CKSyncEngine) async {
         guard engine === self.engine else { return }
         switch event {
         case .stateUpdate(let update):
@@ -336,11 +394,11 @@ final class CloudSyncManager {
         case .fetchedDatabaseChanges(let changes):
             zonesChanged(changes)
         case .fetchedRecordZoneChanges(let changes):
-            apply(changes)
+            await apply(changes)
         case .sentDatabaseChanges(let sent):
             for failure in sent.failedZoneSaves { report(failure.error) }
         case .sentRecordZoneChanges(let sent):
-            confirm(sent)
+            await confirm(sent)
         case .willFetchChanges, .willSendChanges:
             state.isSyncing = true
         case .didFetchChanges:
@@ -361,7 +419,7 @@ final class CloudSyncManager {
         }
     }
 
-    private func apply(_ changes: CKSyncEngine.Event.FetchedRecordZoneChanges) {
+    private func apply(_ changes: CKSyncEngine.Event.FetchedRecordZoneChanges) async {
         var applied: [Applied] = []
         for modification in changes.modifications {
             let record = modification.record
@@ -371,44 +429,52 @@ final class CloudSyncManager {
                     ledger.deviceSystemFields = CloudSyncRecords.systemFields(of: record)
                 }
             } else if let item = CloudSyncRecords.item(from: record), kinds.contains(item.kind),
-                let merged = merge(item, from: record)
+                let merged = await merge(item, from: record)
             {
                 applied.append(merged)
             }
         }
-        for deletion in changes.deletions { removeRemotely(deletion.recordID) }
-        settle(applied)
-        retryHeld()
+        for deletion in changes.deletions { await removeRemotely(deletion.recordID) }
+        await settle(applied)
+        await retryHeldRecords()
         publishStatus()
         schedulePersist()
     }
 
     /// The server's version lands unless this Mac's own unsent edit is the newer one.
-    private func merge(_ item: CloudSyncRecords.Item, from record: CKRecord) -> Applied? {
+    private func merge(_ item: CloudSyncRecords.Item, from record: CKRecord) async -> Applied? {
         let name = record.recordID.recordName
-        guard !ledger.pendingDeletes.contains(name) else { return nil }
+        guard !ledger.pendingDeletes.contains(name), let binding = bindings[item.kind] else {
+            return nil
+        }
         let systemFields = CloudSyncRecords.systemFields(of: record)
         let decision = SyncMergePolicy.decide(
-            local: ledger.entries[name], serverEditedAt: item.editedAt,
-            firstContact: ledger.firstContact)
-        guard decision == .takeServer else {
+            local: ledger.entries[name], serverDigest: item.payload.digest,
+            serverEditedAt: item.editedAt, firstContact: ledger.firstContact,
+            keepsBoth: binding.keepCopy != nil)
+        switch decision {
+        case .keepLocal, .keepBoth:
             ledger.entries[name]?.systemFields = systemFields
             if let engine { queue(saves: [name], deletes: [], on: engine) }
+            if decision == .keepBoth { _ = await binding.keepCopy?(item.key, item.payload.body) }
             return nil
+        case .takeServer:
+            outgoing[name] = nil
+            engine?.state.remove(pendingRecordZoneChanges: [.saveRecord(record.recordID)])
+            guard await binding.write(item.key, item.payload) else {
+                ledger.hold(
+                    name, kind: item.kind, key: item.key, body: item.payload.body,
+                    systemFields: systemFields)
+                return nil
+            }
+            return Applied(
+                name: name, kind: item.kind, key: item.key, body: item.payload.body,
+                systemFields: systemFields)
         }
-        outgoing[name] = nil
-        engine?.state.remove(pendingRecordZoneChanges: [.saveRecord(record.recordID)])
-        guard bindings[item.kind]?.write(item.key, item.body) == true else {
-            ledger.hold(
-                name, kind: item.kind, key: item.key, body: item.body, systemFields: systemFields)
-            return nil
-        }
-        return Applied(
-            name: name, kind: item.kind, key: item.key, body: item.body, systemFields: systemFields)
     }
 
     /// A local edit not yet sent outlives a remote delete, and goes back up as a new record.
-    private func removeRemotely(_ id: CKRecord.ID) {
+    private func removeRemotely(_ id: CKRecord.ID) async {
         if let deviceID = CloudSyncRecords.deviceID(of: id) {
             ledger.devices[deviceID] = nil
             if deviceID == ledger.deviceID { ledger.deviceSystemFields = nil }
@@ -421,17 +487,17 @@ final class CloudSyncManager {
             return
         }
         ledger.entries[name] = nil
-        if !entry.isHeld { bindings[entry.kind]?.remove(entry.key) }
+        if !entry.isHeld { await bindings[entry.kind]?.remove(entry.key) }
     }
 
-    private func confirm(_ sent: CKSyncEngine.Event.SentRecordZoneChanges) {
+    private func confirm(_ sent: CKSyncEngine.Event.SentRecordZoneChanges) async {
         for record in sent.savedRecords {
             let name = record.recordID.recordName
             let systemFields = CloudSyncRecords.systemFields(of: record)
             if CloudSyncRecords.deviceID(of: record.recordID) != nil {
                 ledger.deviceSystemFields = systemFields
-            } else if let body = inFlight.removeValue(forKey: name) {
-                ledger.didSend(name, body: body, systemFields: systemFields)
+            } else if let payload = inFlight.removeValue(forKey: name) {
+                ledger.didSend(name, payload: payload, systemFields: systemFields)
                 if ledger.entries[name]?.pending == nil { outgoing[name] = nil }
             } else {
                 ledger.entries[name]?.systemFields = systemFields
@@ -445,13 +511,15 @@ final class CloudSyncManager {
                 report(error)
             }
         }
-        for failure in sent.failedRecordSaves { recover(failure) }
+        for failure in sent.failedRecordSaves { await recover(failure) }
         publishStatus()
         schedulePersist()
     }
 
     /// Transient errors the engine retries by itself; these three need a decision first.
-    private func recover(_ failure: CKSyncEngine.Event.SentRecordZoneChanges.FailedRecordSave) {
+    private func recover(
+        _ failure: CKSyncEngine.Event.SentRecordZoneChanges.FailedRecordSave
+    ) async {
         let id = failure.record.recordID
         let name = id.recordName
         inFlight[name] = nil
@@ -463,7 +531,7 @@ final class CloudSyncManager {
                 ledger.deviceSystemFields = CloudSyncRecords.systemFields(of: server)
                 engine?.state.add(pendingRecordZoneChanges: [.saveRecord(id)])
             } else if let item = CloudSyncRecords.item(from: server), kinds.contains(item.kind) {
-                settle(merge(item, from: server).map { [$0] } ?? [])
+                await settle(await merge(item, from: server).map { [$0] } ?? [])
             }
         case .zoneNotFound, .unknownItem:
             if failure.error.code == .zoneNotFound {
@@ -505,8 +573,8 @@ final class CloudSyncManager {
         }
         ledger.deviceSystemFields = nil
         engine.state.add(pendingDatabaseChanges: [.saveZone(Self.zone)])
-        reconcile()
         engine.state.add(pendingRecordZoneChanges: [.saveRecord(deviceRecordID)])
+        scheduleReconcile()
     }
 
     private func accountChanged(_ change: CKSyncEngine.Event.AccountChange.ChangeType) {
@@ -546,14 +614,14 @@ final class CloudSyncManager {
                 device, zoneID: Self.zoneID, systemFields: ledger.deviceSystemFields)
         }
         let name = id.recordName
-        guard let body = outgoing[name], let entry = ledger.entries[name], !entry.isHeld else {
+        guard let payload = outgoing[name], let entry = ledger.entries[name], !entry.isHeld else {
             engine.state.remove(pendingRecordZoneChanges: [.saveRecord(id)])
             return nil
         }
-        inFlight[name] = body
+        inFlight[name] = payload
         return CloudSyncRecords.item(
-            id: id, systemFields: entry.systemFields, kind: entry.kind, key: entry.key, body: body,
-            editedAt: entry.editedAt ?? .now, deviceID: ledger.deviceID)
+            id: id, systemFields: entry.systemFields, kind: entry.kind, key: entry.key,
+            payload: payload, editedAt: entry.editedAt ?? .now, deviceID: ledger.deviceID)
     }
 
     // MARK: - This Mac
@@ -668,8 +736,9 @@ final class CloudSyncManager {
 }
 
 extension CloudSyncManager: CKSyncEngineDelegate {
+    /// Joins the chain, so an event never lands in the middle of a local pass, nor one in its.
     nonisolated func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
-        await handle(event, from: syncEngine)
+        await serially { [self] in await handle(event, from: syncEngine) }
     }
 
     nonisolated func nextRecordZoneChangeBatch(

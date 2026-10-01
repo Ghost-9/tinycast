@@ -25,7 +25,9 @@ commands and global shortcuts can show, search, or extend the collection.
   collection navigation cannot abandon an in-memory draft.
 - **Tinycast is the only writer.** There is no watcher and no revision check: a save replaces the file
   with what is in the editor. Every show re-lists the folder, so a note added outside appears, but the
-  active draft is never re-read from disk.
+  active draft is never re-read from disk. [iCloud sync](icloud-sync.md) writes only through
+  `NotesStore.acceptRemote`, which refuses a note with an unsaved draft; the other version is then
+  kept beside it as a conflicted copy.
 - **Search is on demand and unindexed.** An empty switcher query reads metadata plus the head of every
   unnamed note; a nonempty query reads bodies sequentially off-main and retains no collection-sized
   source cache.

@@ -130,6 +130,12 @@ struct NotesRepository: Sendable {
         }
     }
 
+    /// At exactly this filename, created when missing: a note from another Mac keeps its name.
+    func put(id: NoteID, source: String) throws(Failure) {
+        try mappedError(at: notesDirectory) { try ensureDirectory() }
+        try save(id: id, source: source)
+    }
+
     func rename(id: NoteID, title: String) throws(Failure) -> NoteID {
         let candidate = fileURL(for: id)
         return try mappedError(at: candidate) {

@@ -101,6 +101,7 @@ extension SettingsAnchor {
     static let permissionsCalendars = Self(tab: .permissions, title: "Calendars")
 
     static let iCloudSyncICloudSync = Self(tab: .iCloudSync, title: "iCloud Sync")
+    static let iCloudSyncWhatSyncs = Self(tab: .iCloudSync, title: "What Syncs")
     static let iCloudSyncStatus = Self(tab: .iCloudSync, title: "Status")
     static let iCloudSyncMacs = Self(tab: .iCloudSync, title: "Macs")
 

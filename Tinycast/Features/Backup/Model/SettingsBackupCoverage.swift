@@ -167,6 +167,8 @@ enum SettingsBackupCoverage {
         AppSettingsKey.cloudSyncEnabled.rawValue:
             "Lets other Macs change this one's settings; an import must not switch that on.",
         AppSettingsKey.cloudSyncCategories.rawValue:
-            "Says what other Macs may change on this one, which each Mac decides for itself."
+            "Says what other Macs may change on this one, which each Mac decides for itself.",
+        AppSettingsKey.cloudSyncIncludesSecrets.rawValue:
+            "Lets API keys and tokens leave this Mac; an import must not decide that for it."
     ]
 }
