@@ -216,6 +216,8 @@ struct ExtensionInstaller: Sendable {
         process.standardError = pipe
 
         // Closing the install stops the child, so a cancelled build can't outlive its workspace.
+        var timeout: Task<Void, Never>?
+        defer { timeout?.cancel() }
         let result = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 // One resume, whichever of termination and timeout arrives first.
@@ -235,20 +237,28 @@ struct ExtensionInstaller: Sendable {
                     continuation.resume(throwing: error)
                     return
                 }
-                Task {
+                // A cancel that landed before launch found nothing running to stop.
+                if Task.isCancelled { Self.stop(process) }
+                timeout = Task {
                     try? await Task.sleep(for: .seconds(Self.commandTimeout))
-                    guard process.isRunning else { return }
-                    process.terminate()
+                    guard !Task.isCancelled, process.isRunning else { return }
+                    Self.stop(process)
                     guard state.claim() else { return }
                     continuation.resume(
                         returning: CommandResult(status: -1, output: "timed out after 5 minutes"))
                 }
             }
         } onCancel: {
-            if process.isRunning { process.terminate() }
+            Self.stop(process)
         }
         try Task.checkCancellation()
         return result
+    }
+
+    /// `Process` makes the child a group leader, so this reaches what the package manager spawned.
+    private static func stop(_ process: Process) {
+        guard process.isRunning else { return }
+        kill(-process.processIdentifier, SIGTERM)
     }
 }
 
