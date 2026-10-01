@@ -14,6 +14,8 @@ struct ExtensionListing: Identifiable, Hashable, Sendable {
     let downloadCount: Int?
     /// A built zip; the store signs these, so the URL is fetched at install, never reused.
     let downloadURL: URL
+    /// What an update check compares: it moves with every version the store publishes.
+    let commitSHA: String?
 
     /// Either side stands in for a missing other, so a one-artwork listing still draws.
     func iconURL(isDark: Bool) -> URL? {

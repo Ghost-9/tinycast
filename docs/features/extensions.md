@@ -6,7 +6,7 @@ produces, rendered natively into the palette. No Electron, no browser, no Node.j
 - [How it works](#how-it-works) · [The JS runtime](#the-js-runtime) ·
   [The Swift host](#the-swift-host) · [Rendering](#rendering)
 - [Turning it on](#turning-it-on) · [Installing extensions](#installing-extensions) ·
-  [Installing from GitHub](#installing-from-github) · [Shortcuts](#shortcuts) · [Aliases](#aliases) · [Deeplinks](#deeplinks) ·
+  [Installing from GitHub](#installing-from-github) · [Updates](#updates) · [Shortcuts](#shortcuts) · [Aliases](#aliases) · [Deeplinks](#deeplinks) ·
   [What's supported](#whats-supported) ·
   [What isn't](#what-isnt-supported-yet) · [Working on the runtime](#working-on-the-runtime)
 
@@ -539,6 +539,24 @@ Neither the package manager nor the custom search paths ride a settings backup: 
 the machine an import lands on may not have, and the second is a set of paths specific to this Mac's
 toolchain layout.
 
+## Updates
+
+Only store extensions update; a GitHub or folder install is the user's own copy, and reinstalling it
+is how it changes. **The check runs when Settings › Extensions opens, and at no other time.**
+
+`ExtensionVersionStore` records the store's `commit_sha` for each store-sourced extension in
+`extension-versions.json`, because nothing installed carries a version: neither the store's zip nor
+Raycast's own copy has one in its `package.json`. A store install records the listing's commit. An
+import from Raycast records an unknown version, which the next check adopts from the store — Raycast
+keeps its own copies current, so that is what an import holds. A folder or GitHub install removes the
+entry, and an extension with no entry is never checked.
+
+A check looks each tracked extension up by `GET /api/v1/extensions/<handle>/<name>`, where the handle
+is the manifest's `owner` when it has one and its `author` otherwise. A different commit is an update.
+A lookup that fails is skipped rather than reported, so a flaky network never invents an update.
+Updating is a store install of that listing, which replaces only the extension's directory — its
+preferences, storage and icon carry over.
+
 ## Shortcuts
 
 A global shortcut binds to a **command**, not to an extension — a shortcut has to land on one thing to
@@ -826,6 +844,7 @@ never shares with an installed copy.
 | The extension | `extensions/<name>/` | yes |
 | `LocalStorage`, `Cache`, preferences | `extension-data/<safe name>.json` | yes |
 | Command subtitle, refresh state | `extension-commands.json` | yes |
+| Installed store version | `extension-versions.json` | yes |
 | `environment.supportPath` | `extension-support/<safe name>/` | yes |
 | OAuth tokens | macOS Keychain (`com.tinycast.extensions.oauth`) | yes |
 | Menu-bar activation and snapshot | `extension-commands.json` | yes |

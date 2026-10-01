@@ -572,7 +572,9 @@ enum SettingsSearchCatalog {
             keywords: ["local", "develop", "sideload"]),
         .init(
             group: .extensionsInstalled, "Installed extensions",
-            keywords: ["library", "uninstall", "preferences", "appearance", "alias", "shortcut"]),
+            keywords: [
+                "library", "uninstall", "update", "preferences", "appearance", "alias", "shortcut"
+            ]),
         .init(
             group: .extensionsCompatibility, "Compatibility",
             keywords: ["supported", "unsupported", "raycast api"]),

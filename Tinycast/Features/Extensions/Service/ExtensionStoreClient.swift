@@ -22,6 +22,14 @@ struct ExtensionStoreClient: Sendable {
         return try ExtensionStoreResponse.parseStore(try await get(url))
     }
 
+    /// Nil when the store has it but can't serve it, such as a de-listed extension.
+    func lookup(handle: String, name: String) async throws -> ExtensionListing? {
+        guard let url = ExtensionStoreResponse.lookupURL(handle: handle, name: name) else {
+            throw ExtensionStoreError.malformedResponse
+        }
+        return try ExtensionStoreResponse.parseEntry(try await get(url))
+    }
+
     func download(_ url: URL) async throws -> Data {
         try await get(url)
     }

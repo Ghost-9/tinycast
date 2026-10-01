@@ -138,6 +138,7 @@ struct ExtensionStoreTests {
         check("a missing side falls back", coffee.iconURL(isDark: true)?.absoluteString == icon)
         check(
             "the download is the zip", coffee.downloadURL.absoluteString == "https://example.com/coffee.zip")
+        check("the version is read", coffee.commitSHA == "c325a1a")
 
         check(
             "a truncated body throws",
@@ -148,6 +149,29 @@ struct ExtensionStoreTests {
         check("the page is passed", url.contains("page=2"))
         // Case-sensitive: "macos" matches only extensions listing no platforms.
         check("macOS is requested, as the endpoint spells it", url.contains("platform=macOS"))
+
+        check(
+            "a lookup addresses the handle and name",
+            ExtensionStoreResponse.lookupURL(handle: "raycast", name: "github")?.absoluteString
+                == "https://www.raycast.com/api/v1/extensions/raycast/github")
+        check(
+            "a lookup without a handle is refused",
+            ExtensionStoreResponse.lookupURL(handle: "", name: "github") == nil)
+
+        let entry = """
+            {"id":"abc","name":"coffee","commit_sha":"d4e5","status":"active",
+             "download_url":"https://example.com/coffee.zip"}
+            """
+        check(
+            "a lookup's single entry parses",
+            (try? ExtensionStoreResponse.parseEntry(Data(entry.utf8)))??.commitSHA == "d4e5")
+        let delisted = """
+            {"id":"abc","name":"coffee","status":"kill_listed",
+             "download_url":"https://example.com/coffee.zip"}
+            """
+        check(
+            "a de-listed lookup offers nothing",
+            (try? ExtensionStoreResponse.parseEntry(Data(delisted.utf8))) == .some(nil))
     }
 
     // MARK: - GitHub trees

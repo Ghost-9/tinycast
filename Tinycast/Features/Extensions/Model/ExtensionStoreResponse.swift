@@ -2,7 +2,7 @@ import Foundation
 
 /// Someone else's endpoint, so every field an install doesn't need is optional.
 enum ExtensionStoreResponse {
-    /// The endpoint the store's own website searches with; unofficial, so it can change unannounced.
+    /// The endpoint the store's own site searches with; unofficial, so it can change unannounced.
     static func searchURL(query: String, page: Int) -> URL? {
         var components = URLComponents(string: "https://www.raycast.com/frontend_api/extensions/search")
         components?.queryItems = [
@@ -12,6 +12,14 @@ enum ExtensionStoreResponse {
             URLQueryItem(name: "platform", value: "macOS")
         ]
         return components?.url
+    }
+
+    /// One extension by the handle and name its manifest carries.
+    static func lookupURL(handle: String, name: String) -> URL? {
+        guard !handle.isEmpty, !name.isEmpty else { return nil }
+        return URL(string: "https://www.raycast.com/api/v1/extensions")?
+            .appending(path: handle)
+            .appending(path: name)
     }
 
     private struct StorePayload: Decodable {
@@ -28,6 +36,7 @@ enum ExtensionStoreResponse {
         let commands: [Command]?
         let downloadCount: Int?
         let downloadURL: String?
+        let commitSHA: String?
         let status: String?
 
         struct Author: Decodable {
@@ -46,28 +55,36 @@ enum ExtensionStoreResponse {
             case id, name, title, description, author, icons, commands, status
             case downloadCount = "download_count"
             case downloadURL = "download_url"
+            case commitSHA = "commit_sha"
         }
     }
 
-    /// An entry without a usable download is dropped, not listed as uninstallable.
     static func parseStore(_ data: Data) throws -> [ExtensionListing] {
-        let payload = try JSONDecoder().decode(StorePayload.self, from: data)
-        return payload.data.compactMap { entry -> ExtensionListing? in
-            // A de-listed extension is still returned by search; it can't be downloaded any more.
-            guard entry.status == nil || entry.status == "active" else { return nil }
-            guard let raw = entry.downloadURL, let url = URL(string: raw) else { return nil }
-            return ExtensionListing(
-                id: entry.id,
-                name: entry.name,
-                title: entry.title ?? entry.name,
-                summary: entry.description ?? "",
-                author: entry.author?.name ?? entry.author?.handle ?? "",
-                lightIconURL: entry.icons?.light.flatMap(URL.init(string:)),
-                darkIconURL: entry.icons?.dark.flatMap(URL.init(string:)),
-                commandCount: entry.commands?.count ?? 0,
-                downloadCount: entry.downloadCount,
-                downloadURL: url)
-        }
+        try JSONDecoder().decode(StorePayload.self, from: data).data.compactMap(listing(from:))
+    }
+
+    /// A lookup answers with the entry itself, not a page of them.
+    static func parseEntry(_ data: Data) throws -> ExtensionListing? {
+        listing(from: try JSONDecoder().decode(StoreEntry.self, from: data))
+    }
+
+    /// An entry without a usable download is dropped, not listed as uninstallable.
+    private static func listing(from entry: StoreEntry) -> ExtensionListing? {
+        // A de-listed extension is still returned by search; it can't be downloaded any more.
+        guard entry.status == nil || entry.status == "active" else { return nil }
+        guard let raw = entry.downloadURL, let url = URL(string: raw) else { return nil }
+        return ExtensionListing(
+            id: entry.id,
+            name: entry.name,
+            title: entry.title ?? entry.name,
+            summary: entry.description ?? "",
+            author: entry.author?.name ?? entry.author?.handle ?? "",
+            lightIconURL: entry.icons?.light.flatMap(URL.init(string:)),
+            darkIconURL: entry.icons?.dark.flatMap(URL.init(string:)),
+            commandCount: entry.commands?.count ?? 0,
+            downloadCount: entry.downloadCount,
+            downloadURL: url,
+            commitSHA: entry.commitSHA)
     }
 }
 
