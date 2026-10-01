@@ -764,7 +764,10 @@ running dot and the availability of the running-only actions:
   `AppLauncher.quit(bundleID:)` terminates every instance of the bundle and reports whether
   anything was running; the palette only dismisses when something was, and it restores focus unless
   the app it just quit _was_ `previousApp`.
-- **Restart Application** — the row above it and **⌘R**, on the same guard: both chords resolve
+- **Force Quit Application** — the row below it and **⌃⌥⇧Q**, on the same guard and
+  the same dismissal. `AppLauncher.quit(bundleID:force:)` sends `forceTerminate()` instead, so the
+  app gets no chance to save or refuse.
+- **Restart Application** — the row above Quit and **⌘R**, on the same guard: all three chords resolve
   their target through `LauncherScreen.runningApplication(at:)`, the single place that condition
   lives. `AppLauncher.restart(bundleID:url:)` snapshots the running instances, subscribes to
   `NSWorkspace.DidTerminateApplicationMessage` _before_ terminating so an instance that exits at
@@ -779,10 +782,10 @@ running dot and the availability of the running-only actions:
   resolves that list **once**, confirms it with an `NSAlert`, then terminates exactly what was
   confirmed. The palette hides before the alert — it is a floating panel and would sit above it.
 
-Both quits are graceful `NSRunningApplication.terminate()`, so an app with unsaved work still puts up
-its own save sheet.
+Every quit but Force Quit is a graceful `NSRunningApplication.terminate()`, so an app with unsaved
+work still puts up its own save sheet.
 
 The ⌘K menu samples `isRunning` **once, when it opens** (`RootPaletteView.openActions()`), so an app
-launching or quitting elsewhere can't add or drop those two rows while the menu is up — the same freeze
+launching or quitting elsewhere can't add or drop those rows while the menu is up — the same freeze
 the rest of the menu already has ([palette.md](palette.md)). Only `LauncherList` observes
 `RunningAppsMonitor` live, for the running dot.

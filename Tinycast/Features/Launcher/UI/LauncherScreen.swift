@@ -297,7 +297,7 @@ struct LauncherScreen: PaletteScreen {
         switch shortcut {
         case .toggleFavorite: return toggleFavorite(at: selection)
         case .hideFromSearch: return hideFromSearch(at: selection)
-        case .quit: return quit(at: selection)
+        case .quit, .forceQuit: return quit(at: selection, force: shortcut == .forceQuit)
         case .restart: return restart(at: selection)
         case .favoriteSlot(let index): return launchFavorite(at: index)
         case .copyCalculation: return copyCalculation(at: selection)
@@ -314,10 +314,10 @@ struct LauncherScreen: PaletteScreen {
         return true
     }
 
-    /// ⌃⇧Q — the screen owns the chord, but only a running application has anything to quit.
-    private func quit(at selection: Int) -> Bool {
+    /// ⌃⇧Q or ⌃⌥⇧Q — the screen owns the chord, but only a running app has anything to quit.
+    private func quit(at selection: Int, force: Bool) -> Bool {
         guard let app = runningApplication(at: selection) else { return false }
-        core.launcherCoordinator.quit(app)
+        core.launcherCoordinator.quit(app, force: force)
         return true
     }
 

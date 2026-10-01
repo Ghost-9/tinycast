@@ -32,6 +32,8 @@ enum PaletteShortcut: Equatable {
     case hideFromSearch
     /// ⌃⇧Q.
     case quit
+    /// ⌃⌥⇧Q.
+    case forceQuit
     /// ⌘R.
     case restart
     /// ⌘N, a new one of whatever the screen holds.
@@ -64,7 +66,7 @@ enum PaletteShortcut: Equatable {
         if control, matches("x") { return shift ? .deleteAll : .delete }
         if command, shift, matches("f") { return .toggleFavorite }
         if command, shift, matches("h") { return .hideFromSearch }
-        if control, shift, matches("q") { return .quit }
+        if control, shift, matches("q") { return option ? .forceQuit : .quit }
         if command, matches("r") { return .restart }
         if command, !shift, matches("n") { return .newItem }
         if command, option, matches(",") { return .settings }
@@ -76,7 +78,7 @@ enum PaletteShortcut: Equatable {
     var requiresExpanded: Bool {
         switch self {
         case .copyFile, .copyName, .copyPath, .copyText, .pasteFile, .quickLook, .openInApp,
-            .showDetails, .toggleFavorite, .hideFromSearch, .quit, .restart:
+            .showDetails, .toggleFavorite, .hideFromSearch, .quit, .forceQuit, .restart:
             true
         case .commandDelete, .delete, .deleteAll, .pin, .favoriteSlot, .continueInChat, .newItem,
             .settings, .copyCalculation:
@@ -89,7 +91,8 @@ enum PaletteShortcut: Equatable {
         case .delete, .deleteAll, .copyFile, .copyName, .copyPath, .copyText, .copyCalculation,
             .quickLook, .openInApp, .showDetails, .toggleFavorite, .hideFromSearch, .newItem, .settings:
             true
-        case .commandDelete, .pasteFile, .quit, .restart, .pin, .favoriteSlot, .continueInChat:
+        case .commandDelete, .pasteFile, .quit, .forceQuit, .restart, .pin, .favoriteSlot,
+            .continueInChat:
             false
         }
     }
