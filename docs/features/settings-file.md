@@ -147,5 +147,7 @@ recorder's rule holds: a chord needs ⌘, ⌥, ⌃ or fn unless its key is an F-
 3. Bind it in `SettingsFileSchema`; an enum conforms to `SettingsFileRawValue`, or to
    `SettingsFileToken` when its file spelling differs from its raw value.
 4. Run its side effect from a `track` sink in `AppCore`.
+5. A new key syncs through [iCloud](icloud-sync.md) unless it names something on one Mac. In that
+   case, list it in `SyncSettingsCoverage.local` with the reason.
 
 A consent flag, content or machine state gets no key.

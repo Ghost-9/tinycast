@@ -1,0 +1,21 @@
+DEFINE SCHEMA
+
+    RECORD TYPE SyncItem (
+        kind        ENCRYPTED STRING,
+        key         ENCRYPTED STRING,
+        body        ENCRYPTED BYTES,
+        editedAt    ENCRYPTED TIMESTAMP,
+        deviceID    ENCRYPTED STRING,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_creator"
+    );
+
+    RECORD TYPE SyncDevice (
+        name        ENCRYPTED STRING,
+        appVersion  ENCRYPTED STRING,
+        lastSeen    ENCRYPTED TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_creator"
+    );

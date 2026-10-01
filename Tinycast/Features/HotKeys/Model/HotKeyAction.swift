@@ -43,6 +43,54 @@ enum HotKeyAction: Hashable, Sendable {
         }
     }
 
+    /// `defaultsKey` read back, for a store that keeps only the key.
+    init?(defaultsKey: String) {
+        let prefix = "hotkey."
+        guard defaultsKey.hasPrefix(prefix) else { return nil }
+        let rest = String(defaultsKey.dropFirst(prefix.count))
+        if rest == "togglePalette" {
+            self = .togglePalette
+            return
+        }
+        // Before the namespaces: a command's raw value is matched whole, dots and all.
+        if let id = CommandID(rawValue: rest) {
+            self = .command(id)
+            return
+        }
+        guard let dot = rest.firstIndex(of: ".") else { return nil }
+        let namespace = String(rest[..<dot])
+        let value = String(rest[rest.index(after: dot)...])
+        if let make = Self.byUUID[namespace] {
+            guard let id = UUID(uuidString: value) else { return nil }
+            self = make(id)
+            return
+        }
+        switch namespace {
+        case "app": self = .app(bundleID: value)
+        case "pane": self = .settingsPane(bundleID: value)
+        case "snippet": self = .snippet(id: value)
+        case "extensionCommand": self = .extensionCommand(entryID: value)
+        case "systemAction":
+            guard let id = SystemAction.ID(rawValue: value) else { return nil }
+            self = .systemAction(id: id)
+        case "windowCommand":
+            guard let id = WindowCommand.ID(rawValue: value) else { return nil }
+            self = .windowCommand(id: id)
+        default:
+            return nil
+        }
+    }
+
+    private static let byUUID: [String: @Sendable (UUID) -> HotKeyAction] = [
+        "customCommand": { .customCommand(id: $0) },
+        "windowLayout": { .windowLayout(id: $0) },
+        "windowRoom": { .windowRoom(id: $0) },
+        "customWindowSize": { .customWindowSize(id: $0) },
+        "quicklink": { .quicklink(id: $0) },
+        "quickAction": { .quickAction(id: $0) },
+        "appleShortcut": { .appleShortcut(id: $0) }
+    ]
+
     /// The fixed actions every install can bind; the per-item catalogs extend them at launch.
     static let builtInActions: [HotKeyAction] =
         [.togglePalette] + CommandID.allCases.compactMap(\.hotKeyAction)

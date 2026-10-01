@@ -32,6 +32,10 @@ final class AppCore {
     let settings: AppSettings
     /// Mirrors settings into settings.json; nil while the Backup pane's switch is off.
     @ObservationIgnored private var settingsFile: SettingsFileRepository?
+    let cloudSync = CloudSyncState(
+        isSupported: CloudKitEntitlement.allows(container: CloudSyncManager.containerIdentifier))
+    /// Syncs through iCloud; nil while the iCloud Sync pane's switch is off.
+    @ObservationIgnored private(set) var cloudSyncManager: CloudSyncManager?
     @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
     /// The last verdict `trackChatRoute` acted on; nil until it has read one.
     @ObservationIgnored private var chatsRunTheirOwnTools: Bool?
@@ -203,6 +207,8 @@ final class AppCore {
         injector: textInjector, appIndex: appIndex, hotKeys: hotKeys, favorites: favorites,
         visibility: visibility, ranking: launcherRanking, aliases: aliases,
         paletteCoordinator: paletteCoordinator, core: self)
+    @ObservationIgnored private(set) lazy var cloudSyncCoordinator = CloudSyncCoordinator(
+        settings: settings, core: self)
     @ObservationIgnored private(set) lazy var mcpCoordinator = MCPCoordinator(
         settings: settings, store: mcpSettings, manager: mcp, core: self)
     /// Its own window and lifecycle, like Settings; Quick AI is the palette's half of the feature.
@@ -373,6 +379,7 @@ final class AppCore {
             appIndex.onScan = { [weak self] in
                 guard let self else { return }
                 hotKeys.removeAppBindings(where: appIndex.isUninstalled)
+                cloudSyncManager?.retryHeld()
             }
             hotKeys.displayName = { [weak self] action in self?.hotKeyDisplayName(for: action) }
             hotKeys.allowsAction = { [weak self] action in
@@ -415,6 +422,8 @@ final class AppCore {
             observeFeatureSwitches()
             // Last, so an edit made while Tinycast was quit reaches every sink wired above.
             if settings.settingsFileEnabled { startSettingsFile(importing: true) }
+            // After the file, so a value it changed while Tinycast was quit syncs like any edit.
+            if settings.cloudSyncEnabled { startCloudSync() }
 
             // First launch binds no hotkey, so guide once; the marker is written at show-time.
             if !OnboardingState.hasOnboarded {
@@ -452,6 +461,15 @@ final class AppCore {
             return
         }
         extensionCoordinator.runDeepLink(link)
+    }
+
+    /// Whether this Mac has what `action` names, so a shortcut from another Mac can bind here.
+    func canBindHotKey(_ action: HotKeyAction) -> Bool {
+        switch action {
+        case .togglePalette, .command, .systemAction, .windowCommand: true
+        case .app(let bundleID): !appIndex.isUninstalled(bundleID: bundleID)
+        default: hotKeyDisplayName(for: action) != nil
+        }
     }
 
     /// The store-backed half of the conflict message; `HotKeyManager` names the catalogs itself.
@@ -517,6 +535,7 @@ final class AppCore {
 
     func prepareForTermination() {
         settingsFile?.flush()
+        cloudSyncManager?.flush()
         clipboardTextIndexer?.stop()
         // Caps Lock first: its remap is the one teardown that outlives the process.
         hyperKeyTap.prepareForTermination()
@@ -681,6 +700,9 @@ final class AppCore {
             reproject: { $0.extensionCoordinator.applyExtensionsLauncherPresence() })
         track({ _ = $0.snippetsFolder }, reproject: { $0.applySnippetsFolder() })
         track({ _ = $0.notesFolder }, reproject: { $0.applyNotesFolder() })
+        track(
+            { _ = $0.cloudSyncCategories },
+            reproject: { $0.cloudSyncManager?.setCategories($0.settings.cloudSyncCategories) })
         trackChatRoute()
     }
 
@@ -789,6 +811,30 @@ final class AppCore {
         settingsFile?.flush()
         settingsFile = nil
         settings.settingsFileEnabled = false
+    }
+
+    // MARK: - iCloud sync
+
+    func startCloudSync() {
+        guard cloudSync.isSupported else { return }
+        settings.cloudSyncEnabled = true
+        guard cloudSyncManager == nil else { return }
+        let manager = CloudSyncManager(
+            state: cloudSync, bindings: CloudSyncSchema.bindings(core: self),
+            ledgerURL: AppPaths.applicationSupport().appendingPathComponent("cloud-sync.plist"))
+        manager.chooseFirstContact = { [weak self] in
+            await self?.cloudSyncCoordinator.chooseFirstContact()
+        }
+        manager.onRemoteReset = { [weak self] in self?.cloudSyncCoordinator.remoteReset() }
+        cloudSyncManager = manager
+        manager.start(categories: settings.cloudSyncCategories)
+    }
+
+    /// Stops both directions and forgets what was agreed; nothing is deleted on either side.
+    func stopCloudSync() {
+        cloudSyncManager?.stop(forgetting: true)
+        cloudSyncManager = nil
+        settings.cloudSyncEnabled = false
     }
 
     // MARK: - Interruption

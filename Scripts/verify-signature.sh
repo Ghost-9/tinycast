@@ -49,6 +49,20 @@ for PAIR in "${RESOURCE_ENTITLEMENTS[@]}"; do
         fail "$NAME.app: $USAGE is declared but $ENTITLEMENT is not"
 done
 
+# A restricted entitlement no embedded profile grants kills the app at launch, before any UI.
+if /usr/libexec/PlistBuddy -c "Print :com.apple.developer.icloud-container-identifiers" \
+    "$ENTITLEMENTS" &>/dev/null; then
+    [ -f "$APP/Contents/embedded.provisionprofile" ] ||
+        fail "$NAME.app: iCloud is entitled but no provisioning profile is embedded"
+fi
+
+# TinycastCloud.entitlements restates the base file; a key added to only one is caught here.
+BASE="$(dirname "$0")/../Tinycast/Tinycast.entitlements"
+for KEY in $(plutil -convert json -o - "$BASE" | grep -o '"[^"]*":' | tr -d '":'); do
+    /usr/libexec/PlistBuddy -c "Print :$KEY" "$ENTITLEMENTS" &>/dev/null ||
+        fail "$NAME.app: $KEY from Tinycast.entitlements is missing"
+done
+
 if [ "$STATUS" -eq 0 ]; then
     echo "✓ $NAME.app is notarizable and its prompts are entitled"
 fi

@@ -149,6 +149,9 @@ final class HotKeyManager {
 
     func binding(for action: HotKeyAction) -> HotKeyBinding? { bindings[action] }
 
+    /// Every live binding, for a mirror that has to see them all at once.
+    var allBindings: [HotKeyAction: HotKeyBinding] { bindings }
+
     private func storedBinding(for action: HotKeyAction) -> HotKeyBinding? {
         // The stored value is a JSON string; anything else reads as unbound.
         guard

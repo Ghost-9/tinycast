@@ -25,6 +25,16 @@ enum SettingsFileFormat {
         return Data((text(.object(sections), indent: 0) + "\n").utf8)
     }
 
+    /// One value printed alone, for a transport that carries its key separately.
+    static func render(value: SettingsFileJSON) -> Data {
+        Data(text(value, indent: 0).utf8)
+    }
+
+    static func parse(value data: Data) -> SettingsFileJSON? {
+        (try? JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed))
+            .map(SettingsFileJSON.init(jsonObject:))
+    }
+
     /// Throws only when nothing in the file can be trusted; a single bad key is an issue instead.
     static func parse(_ data: Data) throws(SettingsFileIssue) -> Parsed {
         let object: Any

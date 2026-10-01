@@ -28,6 +28,7 @@ struct SettingsDetailView: View {
             case .calendar: CalendarSettingsView()
             case .extensions: ExtensionsSettingsView()
             case .permissions: PermissionsSettingsView()
+            case .iCloudSync: CloudSyncSettingsView()
             case .backup: BackupSettingsView()
             case .about: AboutView()
             }

@@ -100,6 +100,10 @@ extension SettingsAnchor {
     static let permissionsAccessibility = Self(tab: .permissions, title: "Accessibility")
     static let permissionsCalendars = Self(tab: .permissions, title: "Calendars")
 
+    static let iCloudSyncICloudSync = Self(tab: .iCloudSync, title: "iCloud Sync")
+    static let iCloudSyncStatus = Self(tab: .iCloudSync, title: "Status")
+    static let iCloudSyncMacs = Self(tab: .iCloudSync, title: "Macs")
+
     static let backupExport = Self(tab: .backup, title: "Export")
     static let backupImport = Self(tab: .backup, title: "Import")
     static let backupImportFromRaycast = Self(tab: .backup, title: "Import from Raycast")

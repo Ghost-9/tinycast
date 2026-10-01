@@ -56,6 +56,7 @@ struct DoubleTapDetectorTests {
     static func main() {
         modifierGlyphs()
         commandActions()
+        defaultsKeys()
         layoutCharacters()
         hyperChord()
         hyperRetargeting()
@@ -230,6 +231,34 @@ struct DoubleTapDetectorTests {
     }
 
     // MARK: - Built-in command mappings
+
+    /// A synced shortcut travels as its key alone, so every action has to come back from it.
+    static func defaultsKeys() {
+        let id = UUID()
+        var actions: [HotKeyAction] =
+            HotKeyAction.builtInActions + [
+                .app(bundleID: "com.apple.Safari"),
+                .settingsPane(bundleID: "com.apple.Displays-Settings.extension"),
+                .customCommand(id: id), .windowLayout(id: id), .windowRoom(id: id),
+                .customWindowSize(id: id), .quicklink(id: id), .quickAction(id: id),
+                .appleShortcut(id: id), .snippet(id: "Work/signature.md"),
+                .extensionCommand(entryID: "extension:owner/name.with.dots/command")
+            ]
+        actions += SystemAction.ID.allCases.map { .systemAction(id: $0) }
+        actions += WindowCommand.ID.allCases.map { .windowCommand(id: $0) }
+        for action in actions {
+            expect(
+                HotKeyAction(defaultsKey: action.defaultsKey) == action,
+                "\(action.defaultsKey) reads back as the action that wrote it")
+        }
+        expect(
+            HotKeyAction(defaultsKey: "hotkey.quicklink.not-a-uuid") == nil,
+            "a malformed id reads as nothing rather than as another action")
+        expect(
+            HotKeyAction(defaultsKey: "hotkey.unknown.value") == nil,
+            "an unknown namespace reads as nothing")
+        expect(HotKeyAction(defaultsKey: "togglePalette") == nil, "a key needs its prefix")
+    }
 
     static func commandActions() {
         let unbindable = Set(CommandID.allCases.filter { $0.hotKeyAction == nil })

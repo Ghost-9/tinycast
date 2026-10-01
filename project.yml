@@ -53,7 +53,13 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tinycast.app
         INFOPLIST_FILE: Tinycast/Info.plist
-        CODE_SIGN_ENTITLEMENTS: Tinycast/Tinycast.entitlements
+        CODE_SIGN_ENTITLEMENTS: $(TINYCAST_ENTITLEMENTS)
+        # The app's alone, so a release swaps in iCloud without touching the helper, which no profile
+        # covers. CI and the iCloud dev build override these; see docs/signing.md.
+        TINYCAST_ENTITLEMENTS: Tinycast/Tinycast.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: $(TINYCAST_PROVISIONING_PROFILE)
+        TINYCAST_CLOUD_ENVIRONMENT: Production
+        TINYCAST_PUSH_ENVIRONMENT: production
         ASSETCATALOG_COMPILER_APPICON_NAME: tinycast
         COMBINE_HIDPI_IMAGES: YES
         LD_RUNPATH_SEARCH_PATHS:

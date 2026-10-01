@@ -13,7 +13,7 @@ contradicts the code is a defect, so fix it in the commit that made it wrong.
 | [testing.md](testing.md) | How to verify a change: the definition of done, the harnesses, purity checks, budgets, the manual sweep | a harness moves, or a budget changes |
 | [development.md](development.md) | The local loop: setup, build, dev channel, editor, format/lint, generated data | the local toolchain changes |
 | [release.md](release.md) | How a build reaches a user: packaging, PR review, releases, the Homebrew tap | the pipeline changes |
-| [signing.md](signing.md) | The self-signed identity and the two CI secrets | the signing setup changes |
+| [signing.md](signing.md) | The local and release identities, the profiles, iCloud, and the CI secrets | the signing setup changes |
 | [ui.md](ui.md) | The design system: tokens, panel chrome, row grammar, glass, dialogs and HUDs | a token or a presentation rule changes |
 
 ## Features
@@ -47,6 +47,7 @@ open with an `## Invariants` section; read it before changing anything in that a
 [uninstall](features/uninstall.md) ·
 [backup](features/backup.md) ·
 [settings file](features/settings-file.md) ·
+[iCloud sync](features/icloud-sync.md) ·
 [Raycast import](features/raycast-import.md) ·
 [Raycast extensions](features/extensions.md) ·
 [updates](features/updates.md) ·

@@ -70,6 +70,23 @@ Consequences worth knowing:
 - The Hyper Key's Caps Lock remap is `hidutil` state, which is **system-wide, not per-bundle**: quitting
   one build clears the remap for the other, which then needs a rebind or a relaunch to restore it.
 
+### iCloud sync
+
+The everyday Dev build can't sync: iCloud's entitlements are restricted, and a self-signed build has no
+profile to grant them. To work on [sync](features/icloud-sync.md), build Dev signed by the team instead,
+against the container's Development environment:
+
+```sh
+xcodebuild -project Tinycast.xcodeproj -scheme Tinycast -configuration Debug \
+  -allowProvisioningUpdates CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Development" \
+  DEVELOPMENT_TEAM=<team id> TINYCAST_ENTITLEMENTS=Tinycast/TinycastCloud.entitlements \
+  TINYCAST_CLOUD_ENVIRONMENT=Development TINYCAST_PUSH_ENVIRONMENT=development build
+```
+
+Xcode registers `iCloud.com.tinycast.app.dev` and the profile on the first run. Then import the schema
+once: `TINYCAST_TEAM_ID=<team id> ./Scripts/cloudkit/deploy-schema.sh com.tinycast.app.dev`. This build
+has a different signature from the self-signed one, so macOS asks for Accessibility again.
+
 ## Editor
 
 Xcode works out of the box and needs nothing here. Everything below is optional, and which editor you

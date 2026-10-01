@@ -11,12 +11,14 @@ the signing identity itself is in [signing.md](signing.md).
 ```
 
 It builds a Release `Tinycast.app` signed with `Tinycast Self-Signed` and packs it with an
-`/Applications` symlink. Official per-channel releases are built by CI, below.
+`/Applications` symlink. Without the team's profile it can't use iCloud, so its sync pane stays off.
+Official per-channel releases are built by CI, below.
 
 ## Signing & Gatekeeper
 
-Both local builds and CI releases sign with the same stable `Tinycast Self-Signed` identity, not an
-Apple Developer ID — so macOS quarantines a directly-downloaded DMG. The Homebrew cask strips that
+Local builds sign with the stable `Tinycast Self-Signed` identity; CI releases sign with the team's
+Developer ID and embed the channel's provisioning profile, which is what grants iCloud sync. Releases
+are not notarized yet, so macOS quarantines a directly-downloaded DMG. The Homebrew cask strips that
 automatically; direct downloaders run `xattr -dr com.apple.quarantine "…/Tinycast.app"` once. Full
 details in [signing.md](signing.md).
 
@@ -68,6 +70,10 @@ needed. Run it from the **Actions** tab (`Release` → **Run workflow**) and pic
 It builds on a `macos-26` runner with Xcode 26 and publishes a GitHub Release tagged
 `v<full-version>` with a versioned DMG and zip asset, marked prerelease for beta. On success it also
 bumps the matching cask in the tap and announces the release on Discord.
+
+A release that changes `Scripts/cloudkit/schema.ckdb` needs the schema in each container's
+Production environment first ([features/icloud-sync.md](features/icloud-sync.md#schema)): an older
+schema refuses the new records, and sync fails on every Mac that updates.
 
 A stable run then fans out to a second job, `universal`, which rebuilds the same commit with
 `ARCHS="arm64 x86_64"` and attaches `Tinycast-Universal-<version>.dmg` / `.zip` to the release the
