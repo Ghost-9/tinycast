@@ -41,7 +41,7 @@ enum WindowShortcutPreset: String, CaseIterable, Identifiable, Sendable {
                 .makeSmaller: Self.combo(kVK_ANSI_Minus, controlKey | optionKey),
                 .restore: Self.combo(kVK_Delete, controlKey | optionKey),
                 .nextDisplay: Self.combo(kVK_RightArrow, controlKey | optionKey | cmdKey),
-                .previousDisplay: Self.combo(kVK_LeftArrow, controlKey | optionKey | cmdKey),
+                .previousDisplay: Self.combo(kVK_LeftArrow, controlKey | optionKey | cmdKey)
             ]
         case .spectacle:
             [
@@ -59,7 +59,7 @@ enum WindowShortcutPreset: String, CaseIterable, Identifiable, Sendable {
                 .makeSmaller: Self.combo(kVK_LeftArrow, controlKey | optionKey | shiftKey),
                 .restore: Self.combo(kVK_ANSI_Z, optionKey | cmdKey),
                 .nextDisplay: Self.combo(kVK_RightArrow, controlKey | optionKey | cmdKey),
-                .previousDisplay: Self.combo(kVK_LeftArrow, controlKey | optionKey | cmdKey),
+                .previousDisplay: Self.combo(kVK_LeftArrow, controlKey | optionKey | cmdKey)
             ]
         }
     }

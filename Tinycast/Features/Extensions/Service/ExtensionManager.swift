@@ -234,16 +234,26 @@ final class ExtensionManager: ExtensionRuntimeDelegate, ExtensionHostContext {
         }
     }
 
-    /// Progress is reported per step: building from source can take minutes.
     func install(
-        listing: ExtensionListing, packageManager: ExtensionPackageManager,
-        additionalSearchPaths: [String] = [],
+        _ listing: ExtensionListing,
         onProgress: @Sendable @escaping (ExtensionInstaller.Progress) -> Void
     ) async throws {
+        try await ExtensionInstaller().install(listing, onProgress: onProgress)
+        await refresh()
+    }
+
+    /// Progress is reported per step: building from source can take minutes.
+    @discardableResult
+    func install(
+        _ source: ExtensionGitHubSource, packageManager: ExtensionPackageManager,
+        additionalSearchPaths: [String],
+        onProgress: @Sendable @escaping (ExtensionInstaller.Progress) -> Void
+    ) async throws -> InstalledExtension {
         let installer = ExtensionInstaller(
             packageManager: packageManager, additionalSearchPaths: additionalSearchPaths)
-        try await installer.install(listing, onProgress: onProgress)
+        let installed = try await installer.install(source, onProgress: onProgress)
         await refresh()
+        return installed
     }
 
     /// Refreshes once at the end, and returns what failed so the pane can name it.

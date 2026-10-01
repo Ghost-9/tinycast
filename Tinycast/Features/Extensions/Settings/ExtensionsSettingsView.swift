@@ -8,7 +8,7 @@ struct ExtensionsSettingsView: View {
     @State private var filter = ""
     @State private var importCandidates: ImportCandidates?
     @State private var browsingStore = false
-    @State private var editingRegistries = false
+    @State private var installingFromGitHub = false
     @State private var error: String?
     /// Extensions Raycast has built that aren't here yet, refreshed whenever the pane appears.
     @State private var pending: [RaycastImportCandidate] = []
@@ -61,8 +61,8 @@ struct ExtensionsSettingsView: View {
         .settingsEditorPanel(isPresented: $browsingStore) {
             ExtensionStorePanel(onClose: { browsingStore = false })
         }
-        .settingsEditorPanel(isPresented: $editingRegistries) {
-            ExtensionRegistriesPanel(onClose: { editingRegistries = false })
+        .settingsEditorPanel(isPresented: $installingFromGitHub) {
+            ExtensionGitHubPanel(onClose: { installingFromGitHub = false })
         }
         .onChange(of: navigation.scrollRequest, initial: true) {
             if case .row(.extensionsInstalled, let name)? = navigation.scrollRequest?.target {
@@ -155,15 +155,25 @@ struct ExtensionsSettingsView: View {
         }
     }
 
-    /// Three rows rather than a menu: search, copy and folder behave differently.
+    /// Rows rather than a menu: each route installs differently.
     private var install: some View {
         Section {
-            SettingsRow(title: "Search extensions", subtitle: searchSubtitle, anchor: .extensionsInstall) {
+            SettingsRow(
+                title: "Search extensions", subtitle: "Ready-built from the Raycast Store.",
+                anchor: .extensionsInstall
+            ) {
                 ExtensionSettingsIcon(systemName: "magnifyingglass")
             } trailing: {
-                // Beside search, because this is the setting that decides what search can find.
-                Button("Registries…") { editingRegistries = true }
                 Button("Search…") { browsingStore = true }
+            }
+            SettingsRow(
+                title: "Install from GitHub",
+                subtitle: "Builds from source with your package manager.",
+                anchor: .extensionsInstall
+            ) {
+                ExtensionSettingsIcon(systemName: "hammer")
+            } trailing: {
+                Button("Install…") { installingFromGitHub = true }
             }
             // A state of this row, not a card: the same job as the button beside it.
             SettingsRow(
@@ -238,13 +248,6 @@ struct ExtensionsSettingsView: View {
         reclaimable = await Task.detached(priority: .utility) {
             ExtensionCleanup.reclaimable(installed: installed, in: roots)
         }.value
-    }
-
-    /// Names what searching will cover, so the row says what the Registries button is for.
-    private var searchSubtitle: String {
-        let on = core.settings.extensionRegistries.filter(\.isEnabled)
-        guard !on.isEmpty else { return "No registries enabled — searching would find nothing." }
-        return "Searching \(on.map(\.name).joined(separator: ", "))."
     }
 
     private var importSubtitle: String {
