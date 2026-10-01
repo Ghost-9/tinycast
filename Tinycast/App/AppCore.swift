@@ -323,7 +323,7 @@ final class AppCore {
             updateCoordinator.applyEnabled()
             calendarCoordinator.applyEnabled()
             Task { await appIndex.refresh() }
-            Task { await emojiIndex.load() }
+            Task { await emojiIndex.load(languages: Locale.preferredLanguages) }
             currencyRates.start()
             updateChecker.onUpdateAvailable = { [weak self] release in
                 self?.updateCoordinator.presentIfAvailable(release) ?? true
