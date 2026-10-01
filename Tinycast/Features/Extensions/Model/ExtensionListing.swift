@@ -20,16 +20,6 @@ struct ExtensionListing: Identifiable, Hashable, Sendable {
         isDark ? (darkIconURL ?? lightIconURL) : (lightIconURL ?? darkIconURL)
     }
 
-    var subtitle: String {
-        var parts: [String] = []
-        if !author.isEmpty { parts.append(author) }
-        parts.append("\(commandCount) command\(commandCount == 1 ? "" : "s")")
-        if let downloadCount, downloadCount > 0 {
-            parts.append("\(ExtensionListing.abbreviate(downloadCount)) installs")
-        }
-        return parts.joined(separator: " · ")
-    }
-
     /// 124218 → "124k". Exact counts past a thousand are noise in a row.
     static func abbreviate(_ count: Int) -> String {
         switch count {

@@ -50,13 +50,12 @@ struct ExtensionStorePanel: View {
             placeholder("Nothing matches “\(query)”.")
         } else {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
                     ForEach(results) { listing in
                         StoreRow(
                             listing: listing,
                             state: state(for: listing),
                             onInstall: { install(listing) })
-                        Divider().opacity(0.4)
                     }
                 }
                 .hideNativeScrollers()
@@ -171,7 +170,7 @@ struct ExtensionStorePanel: View {
     }
 }
 
-/// One search result: what it is, who made it, and the button that installs it.
+/// One search result: what it is, who made it, how many use it, and the button that installs it.
 private struct StoreRow: View {
     enum State: Equatable {
         case idle
@@ -181,33 +180,36 @@ private struct StoreRow: View {
         case failed(String)
     }
 
+    /// Larger than a settings row's icon: in a store listing, the artwork is how a result is found.
+    private static let iconSide: CGFloat = 40
+
     let listing: ExtensionListing
     let state: State
     let onInstall: () -> Void
     @Environment(\.isDarkAppearance) private var isDark
+    @State private var hovered = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.lg) {
+        HStack(alignment: .top, spacing: Theme.Spacing.xl) {
             ExtensionIconView(
                 resolved: listing.iconURL(isDark: isDark).map {
                     ExtensionImage.Resolved(source: .remote($0))
                 },
-                size: 32)
-            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                Text(listing.title).font(.body.weight(.medium))
+                size: Self.iconSide)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text(listing.title)
+                    .font(.headline)
+                    .lineLimit(1)
                 if !listing.summary.isEmpty {
                     Text(listing.summary)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
-                        .truncationMode(.tail)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(listing.subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                facts
                 if case .failed(let message) = state {
-                    Text(message)
+                    Label(message, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
                         .lineLimit(3)
@@ -217,7 +219,29 @@ private struct StoreRow: View {
             Spacer(minLength: Theme.Spacing.md)
             action
         }
-        .padding(.vertical, Theme.Spacing.md)
+        .padding(Theme.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                .fill(hovered ? Theme.Colors.rowHover : .clear)
+        )
+        .onHover { hovered = $0 }
+    }
+
+    private var facts: some View {
+        HStack(spacing: Theme.Spacing.xl) {
+            if !listing.author.isEmpty {
+                StoreFact(symbol: "person.crop.circle", text: listing.author)
+            }
+            StoreFact(
+                symbol: "square.grid.2x2",
+                text: "\(listing.commandCount) command\(listing.commandCount == 1 ? "" : "s")")
+            if let downloads = listing.downloadCount, downloads > 0 {
+                StoreFact(symbol: "arrow.down.circle", text: ExtensionListing.abbreviate(downloads))
+                    .help("\(downloads.formatted()) installs")
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.tertiary)
     }
 
     @ViewBuilder
@@ -225,6 +249,7 @@ private struct StoreRow: View {
         switch state {
         case .idle:
             Button("Install", action: onInstall)
+                .buttonStyle(ExtensionSettingsEditorButtonStyle(role: .primary, fillsWidth: false))
         case .installing(let message):
             HStack(spacing: Theme.Spacing.sm) {
                 ProgressView().controlSize(.small)
@@ -233,14 +258,29 @@ private struct StoreRow: View {
             .fixedSize()
         case .installed:
             Label("Installed", systemImage: "checkmark.circle.fill")
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(.green)
-                .labelStyle(.titleAndIcon)
         case .alreadyInstalled:
             Button("Reinstall", action: onInstall)
+                .buttonStyle(ExtensionSettingsEditorButtonStyle(role: .standard, fillsWidth: false))
                 .help("Already installed. Reinstalling replaces it with the store's copy.")
         case .failed:
             Button("Retry", action: onInstall)
+                .buttonStyle(ExtensionSettingsEditorButtonStyle(role: .standard, fillsWidth: false))
         }
+    }
+}
+
+/// One fact under a result, behind the glyph that says what kind of fact it is.
+private struct StoreFact: View {
+    let symbol: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            Image(systemName: symbol)
+            Text(text)
+        }
+        .lineLimit(1)
     }
 }
