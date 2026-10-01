@@ -272,12 +272,14 @@ private struct SettingsEditorPanelSurface: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: Theme.Radius.panel, style: .continuous)
+        // In front of the glass: a glass fill is hit-testable and would hide a handle behind it.
+        let draggable = content.background(WindowDragBackground())
         if controlsOnGlass {
-            content
+            draggable
                 .background(Theme.Colors.panelScrim, in: shape)
                 .glassEffect(.regular, in: shape)
         } else {
-            content.background {
+            draggable.background {
                 shape.fill(Theme.Colors.panelScrim).glassEffect(.regular, in: shape)
             }
         }
