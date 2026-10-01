@@ -74,10 +74,12 @@ extension MeetingEvent.CalendarColor {
     var nsColor: NSColor { NSColor(srgbRed: red, green: green, blue: blue, alpha: 1) }
 }
 
-/// Actions for a meeting, shared by the card and every schedule row.
+/// Actions for a meeting, shared by the card, every schedule row and the details page.
 @MainActor
 enum MeetingActionsMenu {
-    static func content(meeting: MeetingEvent, core: AppCore) -> PopoverMenuContent {
+    static func content(
+        meeting: MeetingEvent, core: AppCore, offersDetails: Bool = true
+    ) -> PopoverMenuContent {
         var items: [PopoverMenuItem] = []
         if meeting.link != nil {
             items.append(
@@ -96,6 +98,12 @@ enum MeetingActionsMenu {
             ) {
                 core.calendarCoordinator.openInCalendar(meeting)
             })
+        if offersDetails {
+            items.append(
+                PopoverMenuItem(title: "Show Details", systemImage: "info.circle") {
+                    core.calendarCoordinator.showDetails(of: meeting)
+                })
+        }
         return PopoverMenuContent(header: meeting.title, items: items)
     }
 }

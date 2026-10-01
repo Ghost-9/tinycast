@@ -36,6 +36,7 @@ struct CalendarTests {
         autoJoinFiresOnce()
         autoJoinRespectsArming()
         eventDrafts()
+        meetingDetails()
 
         print("\(passes)/\(passes + failures) passed")
         if failures > 0 { exit(1) }
@@ -541,6 +542,37 @@ struct CalendarTests {
         expect(EventDraft.label(startOffset: 15) == "15 min", "a smaller offset reads in minutes")
         expect(EventDraft.label(duration: 45) == "45 min", "so does a sub-hour duration")
         expect(EventDraft.label(duration: 60) == "1 hr", "an hour reads as an hour")
+    }
+
+    // MARK: - Meeting details
+
+    static func meetingDetails() {
+        let notes = MeetingDetails.plainText(fromNotes:)
+        expect(notes("  Agenda\n\nBring numbers  ") == "Agenda\n\nBring numbers", "plain text is trimmed")
+        expect(notes(" \n ") == nil, "blank notes are none at all")
+        expect(
+            notes("Join <https://teams.microsoft.com/l/meetup-join/1> now")
+                == "Join <https://teams.microsoft.com/l/meetup-join/1> now",
+            "an angle-bracketed link in plain text survives")
+        expect(notes("a < b and c > d") == "a < b and c > d", "bare angle brackets are not markup")
+        expect(
+            notes("<b>Agenda</b><br>Q&amp;A<br/><br><br>Wrap&nbsp;up") == "Agenda\nQ&A\n\nWrap up",
+            "HTML notes lose their tags, keep their breaks and decode entities")
+        expect(
+            notes("<ul><li>One</li><li>Two</li></ul>") == "• One\n• Two", "list items become bullets")
+        expect(
+            notes("<p>See <a href=\"https://example.com\">https://example.com</a></p>")
+                == "See https://example.com",
+            "a link keeps its text")
+        expect(notes("&amp;lt;b&amp;gt; <br>") == "&lt;b&gt;", "entities decode exactly once")
+
+        let organizer = MeetingDetails.Attendee(name: "Ana", response: .accepted, isOrganizer: true)
+        let guest = MeetingDetails.Attendee(name: "Ben", response: .pending, isOrganizer: false)
+        let other = MeetingDetails.Attendee(name: "Cy", response: .declined, isOrganizer: false)
+        let details = MeetingDetails(
+            meetingID: "m", location: "  \n", notes: nil, attendees: [guest, organizer, other])
+        expect(details.attendees == [organizer, guest, other], "the organizer leads, the rest keep order")
+        expect(details.location == nil, "a blank location is none at all")
     }
 
     // MARK: - Day buckets

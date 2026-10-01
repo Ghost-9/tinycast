@@ -359,6 +359,12 @@ final class CalendarCoordinator {
         paletteCoordinator.togglePalette(mode: .schedule)
     }
 
+    /// Loaded before the push, so the page's first frame is already filled.
+    func showDetails(of meeting: MeetingEvent) {
+        store.loadDetails(of: meeting)
+        paletteCoordinator.navigate(to: .meetingDetails)
+    }
+
     /// A miss is transient, so it reports through the HUD rather than a dialog needing dismissal.
     private func report(_ message: String) {
         paletteCoordinator.hidePalette(restoreFocus: false)

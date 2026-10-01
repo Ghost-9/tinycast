@@ -2,8 +2,8 @@
 
 Four surfaces over the Mac's own calendar: a **join card** at the top of an empty launcher, a
 **Join Next Meeting** global shortcut, the **menu bar**, and meetings that **join themselves**.
-Around them sit five launcher commands, a `My Schedule` sub-screen, a camera preview, and individual
-events as searchable launcher entries.
+Around them sit five launcher commands, a `My Schedule` sub-screen, a per-meeting details page, a
+camera preview, and individual events as searchable launcher entries.
 
 ## Invariants
 
@@ -47,6 +47,9 @@ events as searchable launcher entries.
 - **Per-calendar toggles live on `CalendarStore`, not `AppSettings`.** Calendar identifiers are
   machine-specific, so they are deliberately outside the backup mirror — the same reasoning as
   `palettePosition`.
+- **`MeetingEvent` carries only what a row needs.** Location, notes and attendees are read for one
+  occurrence when its details page opens, never for the whole span, so a busy calendar's invites
+  never sit in the snapshot every surface diffs.
 - **`Model/` stays Foundation-only**; `calendar-test` compiles the shipped sources. EventKit lives in
   `Service/CalendarStore.swift` and nothing EventKit-shaped leaves it.
 
@@ -63,6 +66,7 @@ events as searchable launcher entries.
 - **`MenuBarSummary`** — which event the menu bar carries, and for how long.
 - **`AutoJoinPolicy`** — whether a meeting should open itself, and which one.
 - **`EventDraft`** — what the New Event prompt collects, before anything touches the calendar.
+- **`MeetingDetails`** — one occurrence's location, notes as plain text, and attendees.
 
 ### Finding the link
 
@@ -177,6 +181,25 @@ handle `ical://ekevent/…` accepts, and a recurring occurrence opens its series
 
 A cancelled event never reaches a surface. A declined one is dropped by `agenda`, and an all-day or
 already-finished one with it.
+
+## The details page
+
+`Show Details`, in a meeting's ⌘K menu on the card and on every schedule row, pushes
+`.meetingDetails`. `CalendarCoordinator.showDetails(of:)` has `CalendarStore` load the details
+before the push, so the page's first frame is already filled. The store queries only that
+occurrence's own window on its own calendar and matches the occurrence by `MeetingEvent.id`, so a
+recurring series yields this instance rather than its master.
+
+`CalendarStore.details` is re-read at the end of every `reload`, so the page follows an edit the
+same way every other surface does, and goes to `This meeting is no longer available` when the event
+is deleted or cancelled. Leaving the mode clears it, so a closed page never costs a query.
+
+↵, ⌘↵ and ⌘K act on the page's meeting exactly as on its row. Its own ⌘K menu leaves out
+`Show Details`, which would only push the page it is on.
+
+`MeetingDetails.plainText(fromNotes:)` turns a description some servers store as HTML into text,
+and leaves anything without a known tag untouched, so a plain invite's `<https://…>` link survives.
+The organizer leads the attendee list; everyone else keeps the invite's own order.
 
 ## The menu bar
 
