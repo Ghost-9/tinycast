@@ -314,21 +314,16 @@
 /* Brand surfaces — the only places colour blooms. Kept in CSS so the
    gradients derive from the brand color tokens above. */
 @layer components {
-  /* A ruled grid that fades out from the top, so the hero has texture without
-     noise. Tint-based, so the lines are ink on Light and light on Dark. */
+  /* A dot grid that fades out from the top, so the hero has texture without
+     noise. Tint-based, so the dots are ink on Light and light on Dark. */
   .bg-grid {
-    background-image:
-      linear-gradient(
-        to right,
-        rgb(var(--tc-tint) / 0.045) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        to bottom,
-        rgb(var(--tc-tint) / 0.045) 1px,
-        transparent 1px
-      );
-    background-size: 48px 48px;
+    background-image: radial-gradient(
+      circle,
+      rgb(var(--tc-tint) / 0.14) 1px,
+      transparent 1.5px
+    );
+    background-size: 24px 24px;
+    background-position: center top;
     mask-image: radial-gradient(
       ellipse 70% 60% at 50% 0%,
       #000 30%,
