@@ -3,13 +3,11 @@
 export const changelogHero = {
   eyebrow: "Changelog",
   title: "What's new",
-  intro:
-    "Built in the open. Here's everything that changed in each release, and the people who made it happen.",
+  intro: "What changed in each release of Tinycast, and who contributed.",
 } as const;
 
 export const changelogCopy = {
-  description:
-    "Everything that changed in each Tinycast release, and the people who built it.",
+  description: "What changed in each Tinycast release, and who contributed.",
   jumpTo: "Versions",
   latest: "Latest",
   releaseNotes: "View on GitHub",
@@ -19,11 +17,11 @@ export const changelogCopy = {
     `Thanks to ${count} ${count === 1 ? "contributor" : "contributors"}`,
   earlier: {
     title: "Earlier releases",
-    body: "From before we published release notes. Each one links to its download.",
+    body: "These releases came before release notes. Each one links to its download.",
   },
   unavailable: {
     title: "Changelog unavailable",
-    body: "GitHub didn't respond when this page was built. Every release is still on GitHub.",
+    body: "GitHub didn't respond when this page was built. You can still find every release on GitHub.",
   },
   allReleases: "All releases on GitHub",
   install: "Get Tinycast",
