@@ -41,6 +41,7 @@ export const nav = [
   { label: "Features", href: "/#features" },
   { label: "Privacy", href: "/#privacy" },
   { label: "Docs", href: "/docs" },
+  { label: "Changelog", href: "/changelog" },
 ] as const;
 
 // The hero's two lines. Every other channel lives in docs/install.md, which is
