@@ -511,8 +511,8 @@ enum Theme {
 }
 
 extension View {
-    /// A floating glass control surface: clear, interactive Liquid Glass.
+    /// A floating glass control surface: regular, interactive Liquid Glass.
     func frosted(in shape: some Shape) -> some View {
-        glassEffect(.clear.interactive(), in: shape)
+        glassEffect(.regular.interactive(), in: shape)
     }
 }
