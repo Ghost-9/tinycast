@@ -609,26 +609,30 @@ final class AppIndex {
                 let bundle = Bundle(url: url)
                 let bundleID = bundle?.bundleIdentifier
                 let fileName = EntryNaming.strippingAppExtension(url.lastPathComponent)
-                // Dedup by bundle id; the first scope wins, but a renamed copy lends its name.
+                // Newest readable version wins, and it keeps the loser's names as aliases.
                 if let bundleID, let first = indexByBundleID[bundleID] {
-                    result[first].addAlternateTitle(fileName)
+                    let superseded = result[first]
+                    let incoming = AppBundleVersion(ShortVersion.text(of: bundle))
+                    let incumbent = AppBundleVersion(ShortVersion.text(of: Bundle(url: superseded.url)))
+                    if let incoming, let incumbent, incoming > incumbent {
+                        var winner = Self.entry(
+                            for: url, fileName: fileName, bundle: bundle, cache: &cache)
+                        // Primary name first: it can come from a localised table only one copy has.
+                        for alias in [superseded.name] + superseded.alternateTitles {
+                            winner.addAlternateTitle(alias)
+                        }
+                        winner.keywords += superseded.keywords.filter {
+                            !winner.keywords.contains($0)
+                        }
+                        result[first] = winner
+                    } else {
+                        // An unreadable version either way, so what is indexed stays.
+                        result[first].addAlternateTitle(fileName)
+                    }
                     continue
                 }
 
-                // Finder's rule: LaunchServices ignores a display name the file name contradicts.
-                let names = cache.names(
-                    for: url, base: fileName, developmentRegion: bundle?.developmentLocalization)
-                // Raw: Calendar's strings file swaps its `iCal` array for a name.
-                let alternates = bundle?.infoDictionary?["CFBundleAlternateNames"] as? [String] ?? []
-                // Still searchable, never the label: `code` must keep finding Visual Studio Code.
-                let declared = [bundle?.installedAppName].compactMap { $0 }
-                var entry = AppEntry(
-                    id: url.path, name: names.first ?? fileName, url: url, bundleID: bundleID,
-                    kind: .application, alternateTitles: Array(names.dropFirst()) + alternates,
-                    keywords: declared, iconStamp: FileIconStamp.value(for: url),
-                    installedAt: try? url.resourceValues(forKeys: [.addedToDirectoryDateKey])
-                        .addedToDirectoryDate)
-                entry.addAlternateTitle(fileName)
+                let entry = Self.entry(for: url, fileName: fileName, bundle: bundle, cache: &cache)
                 if let bundleID { indexByBundleID[bundleID] = result.count }
                 result.append(entry)
             }
@@ -640,6 +644,35 @@ final class AppIndex {
             let (panes, panesCache) = SettingsPaneScanner.scan(languages: languages, cache: paneCache)
             // Named here, not at publish: romanizing a CJK index is ~50 ms of main-actor time.
             return (AppIndex.named(apps + panes), cache, panesCache)
+        }
+    }
+
+    /// One bundle as an entry, so a superseding copy is built exactly as a first-seen one is.
+    nonisolated private static func entry(
+        for url: URL, fileName: String, bundle: Bundle?, cache: inout BundleNameCache
+    ) -> AppEntry {
+        // Finder's rule: LaunchServices ignores a display name the file name contradicts.
+        let names = cache.names(
+            for: url, base: fileName, developmentRegion: bundle?.developmentLocalization)
+        // Raw: Calendar's strings file swaps its `iCal` array for a name.
+        let alternates = bundle?.infoDictionary?["CFBundleAlternateNames"] as? [String] ?? []
+        // Still searchable, never the label: `code` must keep finding Visual Studio Code.
+        let declared = [bundle?.installedAppName].compactMap { $0 }
+        var entry = AppEntry(
+            id: url.path, name: names.first ?? fileName, url: url,
+            bundleID: bundle?.bundleIdentifier, kind: .application,
+            alternateTitles: Array(names.dropFirst()) + alternates,
+            keywords: declared, iconStamp: FileIconStamp.value(for: url),
+            installedAt: try? url.resourceValues(forKeys: [.addedToDirectoryDateKey])
+                .addedToDirectoryDate)
+        entry.addAlternateTitle(fileName)
+        return entry
+    }
+
+    /// Reads `CFBundleShortVersionString`, the one string `AppBundleVersion` orders on.
+    enum ShortVersion {
+        nonisolated static func text(of bundle: Bundle?) -> String {
+            bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         }
     }
 
