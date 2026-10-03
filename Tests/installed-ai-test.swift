@@ -625,9 +625,11 @@ struct InstalledAITests {
         }
         let events = await fixture.events(
             kind: .claude, model: "pair", effort: nil, toolServers: session)
+        // Order is incidental: the CLI matches on request_id, not on position.
         expect(
-            reader.calls.map(\.tool) == ["first_tool", "second_tool"] && reader.mostAtOnce == 1,
-            "two calls held open together are asked about one after the other, in order")
+            Set(reader.calls.map(\.tool)) == ["first_tool", "second_tool"]
+                && reader.calls.count == 2 && reader.mostAtOnce == 1,
+            "two calls held open together are asked one at a time, never overlapping")
         expect(
             reader.dialogs == 1,
             "and the second is decided after the first dialog closes, so its grant is seen")
