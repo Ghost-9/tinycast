@@ -100,9 +100,13 @@ struct ClipboardTextTests {
             expect(false, "cancelled extraction throws")
         } catch is CancellationError { expect(true, "cancelled extraction throws") }
 
-        try await searchAndLifetime(in: directory)
-        try await scheduling(in: directory)
-        try await retryFailures(in: directory)
+        do {
+            try await searchAndLifetime(in: directory)
+            try await scheduling(in: directory)
+            try await retryFailures(in: directory)
+        } catch let timeout as HarnessTimeout {
+            expect(false, timeout.description)
+        }
         print("\(passes)/\(passes + failures) passed")
         if failures > 0 { exit(1) }
     }
@@ -302,12 +306,17 @@ struct ClipboardTextTests {
         store.close()
     }
 
-    static func waitUntil(_ condition: () -> Bool) async throws {
-        for _ in 0..<200 {
+    /// A wall-clock deadline, because a fixed poll count spends more than its own budget.
+    static func waitUntil(
+        _ condition: () -> Bool, timeout: Duration = .seconds(20),
+        _ message: String = "scheduler completed before timeout"
+    ) async throws {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while ContinuousClock.now < deadline {
             if condition() { return }
             try await Task.sleep(for: .milliseconds(10))
         }
-        expect(false, "scheduler completed before timeout")
+        throw HarnessTimeout(description: message)
     }
 
     static func makeImage() -> CGImage {
@@ -370,5 +379,10 @@ struct ClipboardTextTests {
             failures += 1
             print("FAIL: \(message)")
         }
+    }
+
+    /// Thrown when a `waitUntil` budget expires, so later assertions do not cascade from it.
+    struct HarnessTimeout: Error, CustomStringConvertible {
+        let description: String
     }
 }
