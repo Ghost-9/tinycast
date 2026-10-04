@@ -609,26 +609,30 @@ final class AppIndex {
                 let bundle = Bundle(url: url)
                 let bundleID = bundle?.bundleIdentifier
                 let fileName = EntryNaming.strippingAppExtension(url.lastPathComponent)
-                // Newest readable version wins, and it keeps the loser's names as aliases.
+                // Newest readable version wins; the losing copy keeps every name it carried.
                 if let bundleID, let first = indexByBundleID[bundleID] {
-                    let superseded = result[first]
+                    let retained = result[first]
                     let incoming = AppBundleVersion(ShortVersion.text(of: bundle))
-                    let incumbent = AppBundleVersion(ShortVersion.text(of: Bundle(url: superseded.url)))
-                    if let incoming, let incumbent, incoming > incumbent {
-                        var winner = Self.entry(
-                            for: url, fileName: fileName, bundle: bundle, cache: &cache)
-                        // Primary name first: it can come from a localised table only one copy has.
-                        for alias in [superseded.name] + superseded.alternateTitles {
-                            winner.addAlternateTitle(alias)
-                        }
-                        winner.keywords += superseded.keywords.filter {
-                            !winner.keywords.contains($0)
-                        }
-                        result[first] = winner
+                    let incumbent = AppBundleVersion(ShortVersion.text(of: Bundle(url: retained.url)))
+                    let incomingWins: Bool
+                    if let incoming, let incumbent {
+                        incomingWins = incoming > incumbent
                     } else {
-                        // An unreadable version either way, so what is indexed stays.
-                        result[first].addAlternateTitle(fileName)
+                        // Unreadable either way: nothing to compare, so what is indexed stays.
+                        incomingWins = false
                     }
+
+                    let duplicate = Self.entry(
+                        for: url, fileName: fileName, bundle: bundle, cache: &cache)
+                    let loser = incomingWins ? retained : duplicate
+                    var merged = incomingWins ? duplicate : retained
+                    for alias in [loser.name] + loser.alternateTitles {
+                        merged.addAlternateTitle(alias)
+                    }
+                    merged.keywords += loser.keywords.filter {
+                        !merged.keywords.contains($0)
+                    }
+                    result[first] = merged
                     continue
                 }
 
